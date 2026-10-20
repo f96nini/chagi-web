@@ -2,7 +2,7 @@
 
 Responsiv, svensk Blazor WebAssembly-webbplats för ITF-taekwondo. Visar tävlingar,
 klassresultat, fighters, klubbar, klubbmedaljer, klubbens poängliga,
-tävlingshistorik och filtrerad ranking. Ren statisk hosting;
+tävlingshistorik och filtrerad Poängliga. Ren statisk hosting;
 ingen backend, administration, databas eller inloggning.
 
 Projektet utgår från MAUI-appen `f96nini/ITF-Taekwondo-Gradering`, commit `1df90bb`.
@@ -64,7 +64,7 @@ mobilens repository. Båda klienterna använder samma parser, ranking, medalj-
 statistik, klubbnormalisering och LF/CRLF-kompatibla kontrollsummor.
 
 Startsidan läser de tre senaste textresultaten och tillhörande matchdata.
-Tävlingslistan, fighterlistan och rankingen läser hela arkivet vid behov.
+Tävlingslistan, fighterlistan och Poängligan läser hela arkivet vid behov.
 Filer återanvänds efter kontrollsummeverifiering; bara ändrade/saknade filer hämtas.
 Ett nytt manifest kontrolleras efter 15 minuter vid nästa sidladdning i appen.
 Webbläsarens `fetch cache: no-cache` låter HTTP-cachen hantera ETag/Last-Modified
@@ -76,11 +76,11 @@ visas tidigare fullständiga data med tydlig varning. En ofullständig cache anv
 aldrig som komplett arkiv. Datacache är inte samma sak som en offlineinstallerad
 app: ingen service worker cachar själva klienten. Första besöket kräver internet.
 
-Ranking behåller aktuell åldersklass och senaste bältesgrupp när säsongen filtreras.
-Klubbfiltret avgränsar rankingens jämförelsegrupp. Okänt kön/klass uppfinns inte.
+Poängligan behåller aktuell åldersklass och senaste bältesgrupp när säsongen filtreras.
+Klubbfiltret avgränsar ligans jämförelsegrupp. Okänt kön/klass uppfinns inte.
 Profiler använder stabila namn/klubbnycklar i URL:er eftersom appens Guid-ID:n
 genereras vid import. Appens speciella tävlings-medaljtopplista använder fortsatt
-sin egna befintliga täta poänggruppering; dess regler ändras inte av webbrankingen.
+sin egna befintliga täta poänggruppering; dess regler ändras inte av webbens Poängliga.
 
 ## GitHub Pages
 
@@ -92,7 +92,7 @@ uppladdning av endast `artifacts/site/wwwroot`. Deploy-jobbet använder miljön
 identifierande uppgifter eller bilder läggs till, särskilt för minderåriga.
 
 `configure-pages` ger korrekt base-adress för `/repo/` och egen domän.
-`prepare-pages.mjs` skriver `<base>`, skapar `.nojekyll` och anpassar `404.html`.
+`prepare-pages.mjs` skriver `<base>`, versionsmärker CSS, skapar `.nojekyll` och anpassar `404.html`.
 En direktlänk som `/repo/fighters/<id>?q=...#historik` går via Pages 404-sida till
 roten och återställs med `history.replaceState` före Blazor startar. Ett första
 404-svar och omdirigering är en begränsning för sökrobotar och delningsförhandsvisningar.
@@ -110,6 +110,7 @@ version. Blazor använder sina genererade resursmanifest; ladda om sidan efter d
 och kontrollera både startsida och en direktlänk. Startsidan, WebAssembly-resurser,
 datakällans CORS-headers och omladdning av `/ranking` har verifierats mot den
 publicerade sajten. Uppdatering efter en framtida deploy återstår att verifiera.
+Poängligan nås via `/poangligan`; den tidigare adressen `/ranking` fungerar också.
 
 ## Bilder och färger
 

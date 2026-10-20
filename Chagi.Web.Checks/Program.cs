@@ -45,7 +45,7 @@ Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && !profile.
 var competition = await Render<Chagi.Web.Pages.CompetitionDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()) });
 Check(competition.Contains("<details") && competition.Contains("Test Alpha") && competition.Contains("Klassresultat"), "Competition details render the actual divisions and placements");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
-Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter"), "Ranking renders separate gender/class groups from the shared calculator");
+Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan"), "Poängligan renders separate gender/class groups from the shared calculator");
 var clubs = await Render<Chagi.Web.Pages.Clubs>();
 var clubId = ClubCatalogService.ResolveClub("Testklubb")!.Id;
 Check(clubs.Contains("Testklubb") && clubs.Contains("klubbar/" + Uri.EscapeDataString(clubId)) && clubs.Contains("Alla klubbar"), "Club catalog includes a results-only club with a working details link");
@@ -64,7 +64,7 @@ Check(error.Contains("role=\"alert\"") && error.Contains("Offline test") && erro
 var loading = await Render<DataStatus>(new() { ["Busy"] = true });
 Check(loading.Contains("role=\"status\"") && loading.Contains("Hämtar resultaten"), "Loading exposes an accessible status");
 var layout = await Render<MainLayout>();
-Check(layout.Contains("Hoppa till innehållet") && layout.Contains("aria-label=\"Huvudmeny\"") && layout.Contains("id=\"main\"") && layout.Contains("klubbar"), "Layout exposes a skip link, named navigation and clubs entry");
+Check(layout.Contains("Hoppa till innehållet") && layout.Contains("aria-label=\"Huvudmeny\"") && layout.Contains("id=\"main\"") && layout.Contains("klubbar") && layout.Contains("poangligan") && layout.Contains("Poängligan"), "Layout exposes a skip link, named navigation, clubs and Poängligan entries");
 Console.WriteLine($"All {count} Razor rendering checks passed.");
 
 sealed class CheckNavigation : NavigationManager

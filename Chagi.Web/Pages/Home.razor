@@ -12,7 +12,7 @@
             <input id="home-search" type="search" placeholder="Sök fighter eller klubb…" @bind="query" />
             <button type="submit" aria-label="Sök fighters">→</button>
         </form>
-        <div class="hero-links"><a href="tavlingar">Utforska tävlingar <span aria-hidden="true">↗</span></a><a href="klubbar">Se klubbar <span aria-hidden="true">↗</span></a><a href="ranking">Se rankingen <span aria-hidden="true">↗</span></a></div>
+        <div class="hero-links"><a href="tavlingar">Utforska tävlingar <span aria-hidden="true">↗</span></a><a href="klubbar">Se klubbar <span aria-hidden="true">↗</span></a><a href="poangligan">Se Poängligan <span aria-hidden="true">↗</span></a></div>
     </div>
     <div class="hero-visual hero-visual-chagi" aria-hidden="true"><div class="visual-top"><span>CHAGI</span><span>SVENSK ITF TAEKWONDO</span></div>
         <img class="hero-app-icon" src="images/chagi-icon.png" alt="" width="168" height="168" />
@@ -33,7 +33,7 @@
         @if (Data.Competitions.Count == 0) { <p class="empty-state">Det finns inga publicerade tävlingsresultat ännu.</p> }
         else { <div class="competition-grid">@foreach (var item in Data.Competitions.Take(3)) { <CompetitionCard Item="item" /> }</div> }
     </section>
-    <section class="explore-banner"><div><span class="eyebrow">UTVECKLING ÖVER TID</span><h2>Följ vägen till nästa medalj.</h2><p>Se tävlingshistorik, upptäck fighters och jämför resultat inom varje klass.</p></div><a class="button" href="ranking">Till rankingen <span aria-hidden="true">↗</span></a></section>
+    <section class="explore-banner"><div><span class="eyebrow">UTVECKLING ÖVER TID</span><h2>Följ vägen till nästa medalj.</h2><p>Se tävlingshistorik, upptäck fighters och jämför resultat inom varje klass.</p></div><a class="button" href="poangligan">Till Poängligan <span aria-hidden="true">↗</span></a></section>
     <p class="source-note">Senaste resultaten · dataversion @Data.Version · <a href="om">Så räknas resultat och poäng</a></p>
 }
 @code {

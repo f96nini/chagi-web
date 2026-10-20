@@ -9,6 +9,8 @@ import { preparePages } from './prepare-pages.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'chagi-pages-checks-'));
 try {
+  fs.mkdirSync(path.join(temp, 'css'));
+  fs.copyFileSync(path.join(root, 'Chagi.Web/wwwroot/css/app.css'), path.join(temp, 'css/app.css'));
   for (const base of ['/', '/chagi-web/', '/custom-project']) {
     fs.copyFileSync(path.join(root, 'Chagi.Web/wwwroot/index.html'), path.join(temp, 'index.html'));
     fs.copyFileSync(path.join(root, 'Chagi.Web/wwwroot/404.html'), path.join(temp, '404.html'));
@@ -28,6 +30,7 @@ try {
       history: {replaceState: (_, __, value) => restored = value}
     });
     assert.equal(decodeURI(restored), target);
+    assert.match(fs.readFileSync(path.join(temp, 'index.html'), 'utf8'), /href="css\/app\.css\?v=[a-f0-9]{12}"/);
     assert(fs.existsSync(path.join(temp, '.nojekyll')));
     console.log(`PASS: Direct-link fallback preserves route, query and hash under ${normalized}`);
   }

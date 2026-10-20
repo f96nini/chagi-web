@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export function preparePages(directory, requestedBase = '/') {
@@ -8,7 +9,13 @@ export function preparePages(directory, requestedBase = '/') {
   const index = path.join(directory, 'index.html');
   const original = fs.readFileSync(index, 'utf8');
   if (!/<base href="[^"]*"\s*\/>/.test(original)) throw new Error('index.html is missing its base element.');
-  fs.writeFileSync(index, original.replace(/<base href="[^"]*"\s*\/>/, `<base href="${base}" />`));
+  const stylesheet = /<link rel="stylesheet" href="css\/app\.css(?:\?v=[a-f0-9]+)?"\s*\/>/;
+  if (!stylesheet.test(original)) throw new Error('index.html is missing its app stylesheet.');
+  const css = fs.readFileSync(path.join(directory, 'css', 'app.css'));
+  const version = createHash('sha256').update(css).digest('hex').slice(0, 12);
+  fs.writeFileSync(index, original
+    .replace(/<base href="[^"]*"\s*\/>/, `<base href="${base}" />`)
+    .replace(stylesheet, `<link rel="stylesheet" href="css/app.css?v=${version}" />`));
   const fallback = path.join(directory, '404.html');
   fs.writeFileSync(fallback, fs.readFileSync(fallback, 'utf8').replaceAll('__BASE_PATH__', base));
   fs.writeFileSync(path.join(directory, '.nojekyll'), '');
