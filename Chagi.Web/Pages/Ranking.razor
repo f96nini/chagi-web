@@ -2,7 +2,7 @@
 @page "/ranking"
 @inherits ResultsPageBase
 <PageTitle>Poängligan · Chagi</PageTitle>
-<div class="page-intro"><span class="eyebrow">PLACERINGAR SOM BERÄTTAR MER</span><h1>Poängligan<span class="accent">.</span></h1><p>Jämför medaljpoäng totalt, per klass eller per klubb. Samma poängberäkning som i Chagi-appen.</p></div>
+<div class="page-intro"><span class="eyebrow">PLACERINGAR SOM BERÄTTAR MER</span><h1>Poängligan<span class="accent">.</span></h1><p>Jämför medaljpoäng totalt, per klass eller per klubb.</p></div>
 <DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
 @if (Data != null)
 {
