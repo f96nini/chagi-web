@@ -44,6 +44,16 @@ Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile 
 var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
 Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && profile.Contains("VS · Inbördes möten") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and link to VS");
 Check(profile.Contains("Badges") && profile.Contains("Klubblogotyp för Testklubb") && profile.Contains("images/club-placeholder.svg") && !profile.Contains("Porträtt av Test Alpha"), "Fighter profile offers Badges and uses the club logo in its header");
+Check(profile.Contains("Senaste bältesklass:") && profile.Contains("belt-white") && profile.Contains(">Vit</span>") && !profile.Contains("Kup-"), "Fighter profile shows a belt color rather than an inferred Kup grade");
+var colorFixture = new Competitor { Results = [
+    new() { CompetitionDate = new DateTime(2026, 6, 1), BeltGroup = "RÖD" },
+    new() { CompetitionDate = new DateTime(2026, 10, 1), BeltGroup = "GRÖN/BLÅ/RÖD" },
+    new() { CompetitionDate = new DateTime(2026, 10, 1), BeltGroup = "BLÅ" }
+] };
+Check(ProfileBeltColors.FromLatestClass(colorFixture).Select(color => color.Name).SequenceEqual(["Blå"]), "The most specific class on the latest date determines the displayed belt color");
+colorFixture.Results.RemoveAt(2);
+Check(ProfileBeltColors.FromLatestClass(colorFixture).Select(color => color.Name).SequenceEqual(["Grön", "Blå", "Röd"]), "A combined class keeps all reported colors without inventing one belt");
+Check(ProfileBeltColors.FromLatestClass(new Competitor { Results = [new() { BeltGroup = "GUL (8-7 Kup)" }] }).Single().Name == "Gul", "A Kup class is presented as its color only");
 var badgeAwards = CompetitorBadgeCalculator.Calculate(data.Fighters.First(), data.Fighters);
 Check(badgeAwards.Any(badge => badge.Id == "first-medal" && badge.IconSource == "bronze_large.png") &&
       badgeAwards.Any(badge => badge.Id == "first-gold" && badge.IconSource == "gold_large.png"),

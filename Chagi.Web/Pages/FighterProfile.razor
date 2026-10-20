@@ -7,7 +7,23 @@
 @if (Fighter is { } fighter)
 {
     var medals = FighterMedalSummaryService.Build(fighter, Data!.Fighters, discipline);
-    <div class="profile-header"><a class="profile-club-logo" href="@($"klubbar/{Uri.EscapeDataString(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)}")" aria-label="@($"Till klubbprofilen för {fighter.Team}")"><Avatar Name="@fighter.Team" Url="@Images.Club(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)" Alt="@($"Klubblogotyp för {fighter.Team}")" Size="large" /></a><div class="page-intro"><span class="eyebrow">FIGHTERPROFIL · @fighter.Team</span><h1>@fighter.FullName<span class="accent">.</span></h1><p>@(fighter.CurrentAgeClass.HasValue ? RankingClassFilterService.ToDisplayName(fighter.CurrentAgeClass.Value) : "Klass ej angiven") · Senaste registrerade bälte: @fighter.LatestBelt.Name</p></div></div>
+    var beltColors = ProfileBeltColors.FromLatestClass(fighter);
+    <div class="profile-header">
+        <a class="profile-club-logo" href="@($"klubbar/{Uri.EscapeDataString(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)}")" aria-label="@($"Till klubbprofilen för {fighter.Team}")"><Avatar Name="@fighter.Team" Url="@Images.Club(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)" Alt="@($"Klubblogotyp för {fighter.Team}")" Size="large" /></a>
+        <div class="page-intro">
+            <span class="eyebrow">FIGHTERPROFIL · @fighter.Team</span>
+            <h1>@fighter.FullName<span class="accent">.</span></h1>
+            <p>@(fighter.CurrentAgeClass.HasValue ? RankingClassFilterService.ToDisplayName(fighter.CurrentAgeClass.Value) : "Klass ej angiven")</p>
+            @if (beltColors.Count > 0)
+            {
+                <div class="profile-belt">
+                    <span class="profile-belt-label">Senaste bältesklass:</span>
+                    <span class="profile-belt-icons" aria-hidden="true">@foreach (var color in beltColors) { <span class="profile-belt-icon belt-@color.CssClass"></span> }</span>
+                    <span class="profile-belt-name">@string.Join(" / ", beltColors.Select(color => color.Name))</span>
+                </div>
+            }
+        </div>
+    </div>
     <div class="profile-stats"><div><span>Medaljer</span><Medals Gold="medals.GoldCount" Silver="medals.SilverCount" Bronze="medals.BronzeCount" /></div><div><span>Medaljpoäng</span><strong>@Results.Sum(r => r.PointsAwarded)</strong></div><div><span>Tävlingar</span><strong>@medals.CompetitionCount</strong></div><div><span>Poängligan, samma kön</span><strong>@(medals.PointsLeaguePosition > 0 ? $"#{medals.PointsLeaguePosition}" : "–")</strong></div></div>
     <nav class="profile-tabs" aria-label="Fighterprofil"><button type="button" class="@(!showBadges ? "active" : "")" aria-current="@(!showBadges ? "page" : null)" @onclick="() => showBadges = false">Tävlingshistorik</button><button type="button" class="@(showBadges ? "active" : "")" aria-current="@(showBadges ? "page" : null)" @onclick="() => showBadges = true">Badges</button><a href="@($"fighters/{Id}/vs")">VS · Inbördes möten <span aria-hidden="true">↗</span></a></nav>
     @if (showBadges)

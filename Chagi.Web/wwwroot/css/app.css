@@ -50,3 +50,4 @@ table{font-size:.93rem}th{background:#eaf2fb;color:#315577;font-size:.75rem}td{b
 .hero-banner{display:block;width:100%;height:auto;border-radius:8px}
 @media(max-width:800px){.hero{grid-template-columns:1fr}.hero-banner{margin-top:25px}}
 @media(max-width:600px){.hero-banner{margin-top:31px}}
+.profile-belt{display:flex;align-items:center;flex-wrap:wrap;gap:7px 10px;margin-top:10px}.profile-belt-label{color:var(--muted);font-size:.88rem}.profile-belt-icons{display:inline-flex;align-items:center;gap:5px}.profile-belt-icon{display:inline-block;width:60px;height:12px;border:1px solid #14293e;border-radius:1px}.profile-belt-icon.belt-white{background:#fff}.profile-belt-icon.belt-yellow{background:#ffeb3b}.profile-belt-icon.belt-green{background:#008000}.profile-belt-icon.belt-blue{background:#0000ff}.profile-belt-icon.belt-red{background:#ff0000}.profile-belt-name{color:var(--ink);font-size:.88rem;font-weight:700}
