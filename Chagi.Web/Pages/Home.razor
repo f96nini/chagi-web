@@ -26,7 +26,6 @@
         <div><strong>@Data.Competitions.Count.ToString("00")</strong><span>Senaste tävlingarna</span></div>
         <div><strong>@Data.Fighters.Count.ToString("N0")</strong><span>Fighters i dessa resultat</span></div>
         <div><strong>@Data.Fighters.Sum(f => f.Results.Count(r => r.Placement is >= 1 and <= 3)).ToString("N0")</strong><span>Medaljer i dessa tävlingar</span></div>
-        <div class="stat-note"><span class="status-dot"></span><span>Publicerade resultat<br /><strong>@(Data.IsStale ? "Sparad version" : "Hämtade från Chagi")</strong></span></div>
     </section>
     <section class="section-block"><div class="section-heading"><div><span class="eyebrow">TILLBAKA PÅ MATTAN</span><h2>Senaste tävlingarna<span class="accent">.</span></h2></div><a class="text-link" href="tavlingar">Alla tävlingar <span aria-hidden="true">↗</span></a></div>
         @if (Data.Competitions.Count == 0) { <p class="empty-state">Det finns inga publicerade tävlingsresultat ännu.</p> }
