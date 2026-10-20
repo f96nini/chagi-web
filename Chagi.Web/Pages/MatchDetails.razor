@@ -1,0 +1,33 @@
+@page "/tavlingar/{Id}/matcher/{DivisionId}"
+@inherits ResultsPageBase
+<PageTitle>Matchdetaljer · @(Competition?.CompetitionName ?? "Chagi")</PageTitle>
+<a class="back-link" href="@($"tavlingar/{Id}")">← Till tävlingsresultatet</a>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Competition is { } competition && Data is { } data && Matches is { Count: > 0 } matches)
+{
+    var individual = matches.All(match => match.IsIndividualAttempt);
+    <div class="page-intro"><span class="eyebrow">MATCHDETALJER · @competition.CompetitionDate.ToString("d MMMM yyyy")</span><h1>@matches[0].Category<span class="accent">.</span></h1><p>@competition.CompetitionName · @competition.CompetitionCity</p></div>
+    <div class="match-count"><strong>@matches.Count @(individual ? matches.Count == 1 ? "deltagarstart" : "deltagarstarter" : matches.Count == 1 ? "möte" : "möten")</strong></div>
+    @if (individual) { <p class="filter-explanation">Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan.</p> }
+    <div class="match-list">
+        @foreach (var match in matches)
+        {
+            <MatchCard Match="match" Matches="matches" Fighters="@data.Fighters" />
+        }
+    </div>
+}
+else if (!Busy && Data != null) { <div class="empty-state"><h1>Matchdetaljer saknas</h1><p>Det finns inga publicerade matcher för den här klassen.</p></div> }
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    [Parameter] public string DivisionId { get; set; } = "";
+    CompetitionCatalogEntry? Competition => Data?.Competitions.FirstOrDefault(c => ResultLinks.CompetitionId(c) == Id);
+    IReadOnlyList<DivisionMatch> Matches => Competition is not { } competition || Data is not { } data ? [] : data.MatchHistory
+        .Where(history => history.Date.Date == competition.CompetitionDate.Date && string.Equals(history.Name.Trim(), competition.CompetitionName.Trim(), StringComparison.OrdinalIgnoreCase))
+        .SelectMany(history => history.Matches)
+        .Where(match => ResultLinks.DivisionId(match.Category) == DivisionId)
+        .DistinctBy(match => match.MatchId)
+        .OrderBy(match => match.StartTime ?? DateTime.MaxValue)
+        .ThenBy(match => match.MatchNumber)
+        .ThenBy(match => match.MatchId)
+        .ToList();
+}

@@ -2,7 +2,7 @@
 
 Responsiv, svensk Blazor WebAssembly-webbplats för ITF-taekwondo. Visar tävlingar,
 klassresultat, fighters, klubbar, klubbmedaljer, klubbens poängliga,
-tävlingshistorik och filtrerad Poängliga. Ren statisk hosting;
+tävlingshistorik, VS, matchdetaljer och filtrerad Poängliga. Ren statisk hosting;
 ingen backend, administration, databas eller inloggning.
 
 Projektet utgår från MAUI-appen `f96nini/ITF-Taekwondo-Gradering`, commit `1df90bb`.
@@ -66,6 +66,10 @@ statistik, klubbnormalisering och LF/CRLF-kompatibla kontrollsummor.
 Startsidan läser de tre senaste textresultaten och tillhörande matchdata.
 Tävlingslistan, fighterlistan och Poängligan läser hela arkivet vid behov.
 Filer återanvänds efter kontrollsummeverifiering; bara ändrade/saknade filer hämtas.
+Fighterprofilens VS grupperar inbördes möten per disciplin eller motståndare med
+appens beräkning i `Chagi.Core`. Matchdetaljerna hämtas ur samma publicerade
+matchfiler och länkas från berörda tävlingsklasser och VS-möten. Äldre möten som
+bara bygger på olika pallplaceringar markeras särskilt.
 Ett nytt manifest kontrolleras efter 15 minuter vid nästa sidladdning i appen.
 Webbläsarens `fetch cache: no-cache` låter HTTP-cachen hantera ETag/Last-Modified
 utan egna CORS-känsliga villkorsheaders. Dataklienten förutsätter inte att Pages

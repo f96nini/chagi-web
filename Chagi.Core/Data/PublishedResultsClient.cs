@@ -21,7 +21,7 @@ public sealed class PublishedSnapshot
 }
 
 public sealed record ResultsData(IReadOnlyList<Competitor> Fighters,
-    IReadOnlyList<CompetitionCatalogEntry> Competitions, string? Version,
+    IReadOnlyList<CompetitionCatalogEntry> Competitions, IReadOnlyList<CompetitionMatchHistory> MatchHistory, string? Version,
     DateTime CheckedAtUtc, bool IsStale, bool LatestOnly, string? Notice);
 
 // Browser HTTP caching performs ETag/Last-Modified revalidation without custom
@@ -134,7 +134,7 @@ public sealed class PublishedResultsClient(HttpClient http, Uri baseUri, IDataSn
             }
         }
         var fighters = CompetitorResultsParser.Parse(results.Select(f => (f.Path, Text(Verified(f)))), history);
-        return new(fighters, CompetitionCatalogService.BuildCatalog(fighters), snapshot.Manifest.Version,
+        return new(fighters, CompetitionCatalogService.BuildCatalog(fighters), history, snapshot.Manifest.Version,
             snapshot.CheckedAtUtc, stale, latestOnly, notice);
     }
 

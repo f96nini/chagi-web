@@ -1,0 +1,37 @@
+<article class="match-card">
+    <div class="match-card-heading"><h2>@(Match.IsIndividualAttempt ? "Start" : "Match") @Match.MatchNumber</h2>@if (Match.ExtraMatchId.HasValue) { <span>@ExtraMatchLabel</span> }</div>
+    @if (Metadata.Count > 0) { <p class="match-meta">@string.Join(" · ", Metadata)</p> }
+    <div class="match-participants">
+        <MatchParticipant Participant="@Match.RedParticipant" Side="Röd" Points="@Match.RedPoints" Flags="@Match.RedFlags" IsWinner="@RedWinner" ShowScores="@(!Match.IsIndividualAttempt)" Fighters="@Fighters" />
+        @if (Match.HasBlueParticipant)
+        {
+            <MatchParticipant Participant="@Match.BlueParticipant" Side="Blå" Points="@Match.BluePoints" Flags="@Match.BlueFlags" IsWinner="@BlueWinner" ShowScores="@(!Match.IsIndividualAttempt)" Fighters="@Fighters" />
+        }
+        else if (!Match.IsIndividualAttempt) { <p class="match-missing">Ingen motståndare angiven i underlaget.</p> }
+    </div>
+    @if (!RedWinner && !BlueWinner) { <p class="match-outcome">@Match.Outcome</p> }
+</article>
+@code {
+    [Parameter, EditorRequired] public DivisionMatch Match { get; set; } = null!;
+    [Parameter, EditorRequired] public IReadOnlyList<DivisionMatch> Matches { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<Competitor> Fighters { get; set; } = [];
+    bool ShowWinner => !Match.IsIndividualAttempt && Match.Finished == 1 && Match.Outcome != "Oavgjort";
+    bool IsWinner(int? id, string? participant) => ShowWinner && (Match.WinnerId.HasValue
+        ? Match.WinnerId == id
+        : !string.IsNullOrWhiteSpace(Match.Winner) && Match.Winner == participant);
+    bool RedWinner => IsWinner(Match.RedId, Match.RedParticipant);
+    bool BlueWinner => Match.HasBlueParticipant && IsWinner(Match.BlueId, Match.BlueParticipant);
+    string ExtraMatchLabel => Matches.FirstOrDefault(item => item.MatchId == Match.ExtraMatchId) is { } original
+        ? $"Extramatch till match {original.MatchNumber}" : "Extramatch";
+    List<string> Metadata
+    {
+        get
+        {
+            var result = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Match.Ring)) result.Add($"Ring {Match.Ring}");
+            if (Match.StartTime.HasValue) result.Add(Match.StartTime.Value.ToString("HH:mm"));
+            if (!string.IsNullOrWhiteSpace(Match.Group) && Match.Group != "0") result.Add($"Grupp {Match.Group}");
+            return result;
+        }
+    }
+}

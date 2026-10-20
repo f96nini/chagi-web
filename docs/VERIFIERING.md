@@ -12,19 +12,20 @@ den ursprungliga appen; dess arbetskopia har inte ändrats.
 | --- | --- | --- |
 | 0, inventering | `docs/INVENTERING.md` | Konkreta källfiler, datakontrakt och adapterplan dokumenterades före extrahering. |
 | 1, delad kod | `Chagi.Core/Models`, `Logic`, `Storage`, `WebConnection`; appens repository/cache-adaptrar, projektreferens, XAML-assemblyreferenser och Preferences-adapter | Gemensam parser och oförändrade rankingregler. Android- och Windows-byggen godkända. Befintliga regressionskontroller refererar nu Core. |
-| 2, webb | `Chagi.Web/Pages`, `Components`, `Layout`, `Services`, `wwwroot`; `Chagi.Web.Checks` | Tävlingar, fighters, ranking och hela klubbflödet med katalog, profil, fighters och klubbmedaljer. Riktiga Razor-komponenter kompilerar och renderas i 16 kontroller. Release-WASM byggdes och startade på den publika sajten; startsida, ranking och tävlingsdetalj kontrollerades i mobilbredd. |
+| 2, webb | `Chagi.Web/Pages`, `Components`, `Layout`, `Services`, `wwwroot`; `Chagi.Web.Checks` | Tävlingar, fighters, Poängligan, VS per disciplin/motståndare, matchdetaljer och hela klubbflödet. Riktiga Razor-komponenter kompilerar och renderas i 20 kontroller. Release-WASM byggdes; VS och matchkort granskades lokalt med publicerade data. |
 | 3, data | `PublishedResultsClient`, `BrowserSnapshotStore`, `cache.js`, `Chagi.Tests` | Gemensamt manifest, SHA-256, LF/CRLF, selektiv HTTP-hämtning, 15-minutersintervall, atomisk IndexedDB-cache och offline-status. 29 data-/rankingkontroller godkända. Publicerad datakälla svarade HTTP 200 med `Access-Control-Allow-Origin: *`; startsida och ranking läste live-data. |
 | 4, bilder | `PublicImages`, `Avatar`, `ClubBadge`, `wwwroot/images` | Appens blå palett, appikon, bakgrund, medaljer och klubblogotyper återanvänds. Fallback för okända klubbar och fighters utan bild, lazy loading och stabila mått. Godkända HTTPS-URL:er kan ersätta enskilda bilder. |
 | 5, publicering | `.github/workflows/pages.yml`, `prepare-pages.mjs`, `404.html`, README; anpassat befintligt Android-releaseworkflow | Root-, repo- och alternativ base-adress klarar routingkontroller. Repositoryt `f96nini/chagi-web` skapades; Pages använder Actions. Första workflow-körningen [39452495326](https://github.com/f96nini/chagi-web/actions/runs/39452495326) byggde och distribuerade med `success`. Startsida och WebAssembly-resurs svarade HTTP 200; omladdning av `/ranking` fungerade i webbläsaren. |
 
 ## Utförda kontroller
 
-`./scripts/Test.ps1` avslutades med exitkod 0: **253 godkända kontroller** i nio
+`./scripts/Test.ps1` avslutades med exitkod 0 i nio
 .NET-testprogram plus Pages-routingkontrollerna. De täcker rankingpoäng och delade
 placeringar, svensk sortering, klubbbyten, aktuell bältesklass, medaljstatistik,
 historisk matchdata, mobilcache/favoriter, navigering/bakgrundsarbete, webbens
-dataklient samt riktiga Razor-vyer med data i minnet. De fyra nya Razor-kontrollerna
-täcker klubbkatalog, klubbprofil, tävlingsmedaljer och appens klubblogotyp.
+dataklient samt riktiga Razor-vyer med data i minnet. Razor-kontrollerna täcker
+även VS, länkar till matchdetaljer, deltagare, poäng, vinnare och oavslutade matcher.
+Android- och Windows-appen byggdes efter flytten av VS-beräkningen till Core.
 
 Den nya klubbkatalogen har kontrollerats lokalt i webbläsare mot publicerad data:
 **42 klubbar**, däribland resultatklubbar utanför katalogen. Klubbprofil,

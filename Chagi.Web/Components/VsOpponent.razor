@@ -1,0 +1,43 @@
+<details class="vs-opponent"><summary><span><strong>@Opponent.Name</strong><small>@Opponent.Team</small></span><span class="vs-record">@Opponent.Wins–@Opponent.Losses</span></summary>
+    <div class="vs-opponent-body">
+        <p class="vs-opponent-meta">@Opponent.MeetingCount @(Opponent.MeetingCount == 1 ? "möte" : "möten")@if (Opponent.Draws > 0) { <span> · @Opponent.Draws oavgjorda</span> }@if (Opponent.Unknown > 0) { <span> · @Opponent.Unknown med okänt resultat</span> }</p>
+        @if (Opponent.FighterLeads || Opponent.OpponentLeads) { <p class="vs-leader">🏆 @(Opponent.FighterLeads ? FighterName : Opponent.Name) leder</p> }
+        @foreach (var group in Opponent.Meetings.GroupBy(meeting => meeting.Discipline).OrderBy(group => DisciplineOrder(group.Key)))
+        {
+            @if (ShowDisciplines) { <h3 class="vs-discipline">@group.Key</h3> }
+            @foreach (var meeting in group.OrderByDescending(meeting => meeting.Date))
+            {
+                var competition = Competitions.FirstOrDefault(item => item.CompetitionDate.Date == meeting.Date.Date && string.Equals(item.CompetitionName.Trim(), meeting.CompetitionName.Trim(), StringComparison.OrdinalIgnoreCase));
+                <article class="vs-meeting"><span class="vs-meeting-date">@meeting.Date.ToString("yyyy-MM-dd") · @meeting.CompetitionName</span><strong class="@OutcomeClass(meeting.Outcome)">@OutcomeText(meeting)</strong><small>@meeting.Division</small>
+                    @if (meeting.HasDetailedResult)
+                    {
+                        <span class="vs-score">Matchpoäng: @DivisionMatch.FormatScore(meeting.FighterPoints) – @DivisionMatch.FormatScore(meeting.OpponentPoints) · Flaggor: @DivisionMatch.FormatScore(meeting.FighterFlags) – @DivisionMatch.FormatScore(meeting.OpponentFlags)</span>
+                        @if (competition != null) { <a class="text-link" href="@($"tavlingar/{ResultLinks.CompetitionId(competition)}/matcher/{ResultLinks.DivisionId(meeting.Division)}")">Matchdetaljer <span aria-hidden="true">↗</span></a> }
+                    }
+                </article>
+            }
+        }
+    </div>
+</details>
+@code {
+    [Parameter, EditorRequired] public HeadToHeadOpponent Opponent { get; set; } = null!;
+    [Parameter, EditorRequired] public string FighterName { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<CompetitionCatalogEntry> Competitions { get; set; } = [];
+    [Parameter] public bool ShowDisciplines { get; set; }
+    string OutcomeText(HeadToHeadMeeting meeting) => meeting.Outcome switch
+    {
+        HeadToHeadOutcome.Win => $"Vinnare: {FighterName}",
+        HeadToHeadOutcome.Loss => $"Vinnare: {Opponent.Name}",
+        HeadToHeadOutcome.Draw => "Oavgjort",
+        _ => "Okänt resultat"
+    } + (meeting.IsPlacementComparison ? " (utifrån pallplacering)" : "");
+    static string OutcomeClass(HeadToHeadOutcome outcome) => $"vs-outcome vs-outcome-{outcome.ToString().ToLowerInvariant()}";
+    static int DisciplineOrder(CompetitionDisciplineE discipline) => discipline switch
+    {
+        CompetitionDisciplineE.Tul => 0,
+        CompetitionDisciplineE.Kross => 1,
+        CompetitionDisciplineE.Sparring => 2,
+        CompetitionDisciplineE.Specialtekniker => 3,
+        _ => 4
+    };
+}

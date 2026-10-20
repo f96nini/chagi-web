@@ -1,0 +1,72 @@
+@page "/fighters/{Id}/vs"
+@inherits ResultsPageBase
+@inject PublicImages Images
+<PageTitle>VS · @(Fighter?.FullName ?? "Fighter") · Chagi</PageTitle>
+<a class="back-link" href="@($"fighters/{Id}")">← Till fighterprofilen</a>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Fighter is { } fighter && Data is { } data)
+{
+    var sections = Sections;
+    var opponents = HeadToHeadCalculator.GroupByOpponent(sections);
+    var meetings = sections.Sum(section => section.Opponents.Sum(opponent => opponent.MeetingCount));
+    <div class="profile-header"><Avatar Name="@fighter.FullName" Url="@Images.Fighter(Id)" Alt="@($"Porträtt av {fighter.FullName}")" Size="large" /><div class="page-intro"><span class="eyebrow">INBÖRDES MÖTEN · @fighter.Team</span><h1>VS<span class="accent">.</span></h1><p>@fighter.FullName · @meetings @(meetings == 1 ? "möte" : "möten") mot @opponents.Count motståndare</p></div></div>
+    <nav class="profile-tabs" aria-label="Fighterprofil"><a href="@($"fighters/{Id}")">Tävlingshistorik</a><span aria-current="page">VS · Inbördes möten</span></nav>
+    <p class="vs-explanation">Vinster – förluster. Äldre möten beräknas från olika pallplaceringar i samma tävlingsklass. När matchdata finns visas matchpoäng och flaggor.</p>
+    <div class="vs-mode" aria-label="Gruppera inbördes möten"><button type="button" class="@(!byOpponent ? "active" : "")" aria-pressed="@(!byOpponent)" @onclick="() => byOpponent = false">Disciplin</button><button type="button" class="@(byOpponent ? "active" : "")" aria-pressed="@byOpponent" @onclick="() => byOpponent = true">Motståndare</button></div>
+    @if (meetings == 0)
+    {
+        <div class="empty-state"><h2>Inga inbördes möten hittades</h2><p>Matchfiler och jämförbara pallplaceringar saknas för denna fighter.</p></div>
+    }
+    else if (byOpponent)
+    {
+        <div class="vs-list">
+            @foreach (var opponent in opponents)
+            {
+                <VsOpponent Opponent="opponent" FighterName="@fighter.FullName" Competitions="@data.Competitions" ShowDisciplines="true" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="vs-list">
+            @foreach (var section in sections)
+            {
+                <details class="vs-section"><summary><strong>@(section.Discipline)</strong><span>@(section.Opponents.Sum(opponent => opponent.MeetingCount)) @(section.Opponents.Sum(opponent => opponent.MeetingCount) == 1 ? "möte" : "möten")</span></summary>
+                    @if (section.Opponents.Count == 0) { <p class="vs-no-meetings">Inga inbördes möten hittades.</p> }
+                    else
+                    {
+                        <div class="vs-section-body">
+                            @foreach (var opponent in section.Opponents)
+                            {
+                                <VsOpponent Opponent="opponent" FighterName="@fighter.FullName" Competitions="@data.Competitions" />
+                            }
+                        </div>
+                    }
+                </details>
+            }
+        </div>
+    }
+}
+else if (!Busy && Data != null) { <div class="empty-state"><h1>Profilen finns inte</h1><p>Sök efter namnet i fighterlistan.</p></div> }
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    bool byOpponent;
+    ResultsData? computedFor;
+    string? computedId;
+    IReadOnlyList<HeadToHeadSection> cachedSections = [];
+    Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.FighterId(f) == Id);
+    IReadOnlyList<HeadToHeadSection> Sections
+    {
+        get
+        {
+            if (Data is not { } data || Fighter is not { } fighter) return [];
+            if (!ReferenceEquals(data, computedFor) || computedId != Id)
+            {
+                cachedSections = HeadToHeadCalculator.Build(fighter, data.MatchHistory, data.Fighters);
+                computedFor = data;
+                computedId = Id;
+            }
+            return cachedSections;
+        }
+    }
+}

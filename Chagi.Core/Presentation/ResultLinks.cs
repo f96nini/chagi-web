@@ -9,6 +9,7 @@ public static class ResultLinks
     // Mobile IDs are generated during import. Public URLs must survive re-imports.
     public static string FighterId(Competitor fighter) => Encode(fighter.FavoriteKey);
     public static string CompetitionId(CompetitionCatalogEntry competition) => Encode(competition.Key);
+    public static string DivisionId(string division) => Encode(division.Trim().Normalize(NormalizationForm.FormC).ToUpperInvariant());
     static string Encode(string value) => Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
         .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

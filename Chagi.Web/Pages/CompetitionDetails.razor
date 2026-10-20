@@ -14,7 +14,7 @@
     @if (Divisions.Count == 0) { <div class="empty-state"><h2>Inga resultat matchar filtren</h2><p>Prova en annan gren, åldersklass eller sökning.</p></div> }
     @foreach (var division in Divisions)
     {
-        <details class="division-card"><summary><span><span class="eyebrow">@division.Discipline</span><strong>@division.Division</strong></span><span class="division-count">@division.Results.Count registrerade <span aria-hidden="true">＋</span></span></summary>
+        <details class="division-card"><summary><span><span class="eyebrow">@division.Discipline</span><strong>@division.Division</strong></span><span class="division-count">@division.Results.Count registrerade @if (HasMatchDetails(division)) { <small class="match-available">Matchdetaljer finns</small> }<span aria-hidden="true">＋</span></span></summary>
             <div class="table-scroll"><table><caption class="sr-only">Resultat i @division.Division</caption><thead><tr><th scope="col">Placering</th><th scope="col">Fighter</th><th scope="col">Klubb</th></tr></thead><tbody>
             @foreach (var result in division.Results)
             {
@@ -22,6 +22,7 @@
                 <tr><td><span class="placement placement-@result.Placement">@(result.Placement > 0 ? result.Placement.ToString() : "–")</span></td><td>@if (fighter != null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@result.CompetitorName</a> } else { @result.CompetitorName }</td><td>@result.Team</td></tr>
             }
             </tbody></table></div>
+            @if (HasMatchDetails(division)) { <a class="match-details-link" href="@($"tavlingar/{Id}/matcher/{ResultLinks.DivisionId(division.Division)}")">Visa matchdetaljer <span aria-hidden="true">↗</span></a> }
         </details>
     }
 }
@@ -31,4 +32,7 @@ else if (!Busy && Data != null) { <div class="empty-state"><h1>Tävlingen finns 
     string search = "", age = ""; CompetitionDisciplineE discipline;
     CompetitionCatalogEntry? Competition => Data?.Competitions.FirstOrDefault(c => ResultLinks.CompetitionId(c) == Id);
     List<CompetitionDivisionEntry> Divisions => Competition?.Divisions.Where(d => (discipline == CompetitionDisciplineE.Alla || d.Discipline == discipline) && (age == "" || d.AgeClass?.ToString() == age) && (d.Division.Contains(search, StringComparison.OrdinalIgnoreCase) || d.Results.Any(r => r.CompetitorName.Contains(search, StringComparison.OrdinalIgnoreCase) || r.Team.Contains(search, StringComparison.OrdinalIgnoreCase)))).ToList() ?? [];
+    bool HasMatchDetails(CompetitionDivisionEntry division) => Competition is { } competition && Data?.MatchHistory.Any(history =>
+        history.Date.Date == competition.CompetitionDate.Date && string.Equals(history.Name.Trim(), competition.CompetitionName.Trim(), StringComparison.OrdinalIgnoreCase) &&
+        history.Matches.Any(match => match.HasDetailedData && string.Equals(match.Category.Trim(), division.Division.Trim(), StringComparison.OrdinalIgnoreCase))) == true;
 }

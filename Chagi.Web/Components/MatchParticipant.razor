@@ -1,0 +1,16 @@
+<div class="match-participant @(Side == "Röd" ? "red" : "blue") @(IsWinner ? "winner" : "")"><span class="match-side">@(ShowScores ? Side : "Deltagare")</span><div class="match-participant-name">@if (Fighter is { } fighter) { <a href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@Name</a> } else { <strong>@Name</strong> }@if (IsWinner) { <img src="images/trophy-gold.svg" alt="Vinnare" width="24" height="24" /> }</div>@if (!string.IsNullOrWhiteSpace(Team)) { <small>@Team</small> }@if (ShowScores) { <div class="match-scores"><strong>@DivisionMatch.FormatScore(Points) matchpoäng</strong><span>@DivisionMatch.FormatScore(Flags) @(Flags == 1 ? "flagga" : "flaggor")</span></div> }</div>
+@code {
+    [Parameter] public string? Participant { get; set; }
+    [Parameter] public string Side { get; set; } = "";
+    [Parameter] public decimal? Points { get; set; }
+    [Parameter] public decimal? Flags { get; set; }
+    [Parameter] public bool IsWinner { get; set; }
+    [Parameter] public bool ShowScores { get; set; }
+    [Parameter] public IReadOnlyList<Competitor> Fighters { get; set; } = [];
+    string[] Parts => (ClubCatalogService.NormalizeParticipant(Participant) ?? "").Split(" - ", 2);
+    string Name => Parts[0] is { Length: > 0 } name && name != "?" ? name : "Deltagare ej angiven";
+    string Team => Parts.Length > 1 ? Parts[1] : "";
+    Competitor? Fighter => Name == "Deltagare ej angiven" ? null : Fighters.FirstOrDefault(fighter =>
+        string.Equals(ClubCatalogService.NormalizeParticipant($"{fighter.FullName} - {fighter.Team}"),
+            ClubCatalogService.NormalizeParticipant(Participant), StringComparison.OrdinalIgnoreCase));
+}

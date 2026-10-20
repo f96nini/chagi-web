@@ -8,6 +8,7 @@ using Chagi.Web.Components;
 using Chagi.Web.Layout;
 using Chagi.Web.Services;
 using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models.Ranking;
 using ITF_Taekwondo_Gradering.WebConnection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -41,16 +42,24 @@ var data = await source.LoadAsync();
 var id = ResultLinks.FighterId(data.Fighters.First());
 Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile links");
 var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
-Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and show competition history");
+Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && profile.Contains("VS · Inbördes möten") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and link to VS");
+var vs = await Render<Chagi.Web.Pages.FighterVs>(new() { ["Id"] = id });
+Check(vs.Contains("Test Gamma") && vs.Contains("Vinnare: Test Alpha") && vs.Contains("Matchpoäng: 5 – 3") && vs.Contains("Matchdetaljer"), "VS renders a real match with result, opponent and details link");
 var competition = await Render<Chagi.Web.Pages.CompetitionDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()) });
-Check(competition.Contains("<details") && competition.Contains("Test Alpha") && competition.Contains("Klassresultat"), "Competition details render the actual divisions and placements");
+Check(competition.Contains("<details") && competition.Contains("Test Alpha") && competition.Contains("Klassresultat") && competition.Contains("Visa matchdetaljer"), "Competition details render placements and an available match-details link");
+var matchDetails = await Render<Chagi.Web.Pages.MatchDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()), ["DivisionId"] = ResultLinks.DivisionId("Mönster Pojkar Kadetter VIT") });
+Check(matchDetails.Contains("Match 1") && matchDetails.Contains("Test Alpha") && matchDetails.Contains("Test Gamma") && matchDetails.Contains("5 matchpoäng") && matchDetails.Contains("Vinnare"), "Match-details route renders participants, scores and winner");
+Check(ResultLinks.DivisionId(" mönster pojkar kadetter vit ") == ResultLinks.DivisionId("Mönster Pojkar Kadetter VIT"), "Match detail links tolerate category whitespace and casing differences");
+var unfinished = new DivisionMatch { MatchNumber = 2, Finished = 0, RedId = 1, BlueId = 2, RedParticipant = "Test Alpha - Testklubb", BlueParticipant = "Test Gamma - Testklubb", WinnerId = 1 };
+var unfinishedCard = await Render<MatchCard>(new() { ["Match"] = unfinished, ["Matches"] = new[] { unfinished }, ["Fighters"] = data.Fighters });
+Check(unfinishedCard.Contains("Ej avslutad") && !unfinishedCard.Contains("alt=\"Vinnare\""), "Unfinished match details never mark a winner");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
 Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan"), "Poängligan renders separate gender/class groups from the shared calculator");
 var clubs = await Render<Chagi.Web.Pages.Clubs>();
 var clubId = ClubCatalogService.ResolveClub("Testklubb")!.Id;
 Check(clubs.Contains("Testklubb") && clubs.Contains("klubbar/" + Uri.EscapeDataString(clubId)) && clubs.Contains("Alla klubbar"), "Club catalog includes a results-only club with a working details link");
 var clubDetails = await Render<Chagi.Web.Pages.ClubDetails>(new() { ["Id"] = clubId });
-Check(clubDetails.Contains("Testklubb") && clubDetails.Contains("Testcup") && clubDetails.Contains("2 fighters") && clubDetails.Contains("Tävlingar"), "Club profile calculates published fighters and competitions");
+Check(clubDetails.Contains("Testklubb") && clubDetails.Contains("Testcup") && clubDetails.Contains("3 fighters") && clubDetails.Contains("Tävlingar"), "Club profile calculates published fighters and competitions");
 var clubCompetition = await Render<Chagi.Web.Pages.ClubCompetition>(new() { ["ClubId"] = clubId, ["CompetitionId"] = ResultLinks.CompetitionId(data.Competitions.First()) });
 Check(clubCompetition.Contains("Test Alpha") && clubCompetition.Contains("Test Beta") && clubCompetition.Contains("Alla resultat"), "Club competition page renders its medallists and full-results link");
 var knownLogo = await Render<ClubBadge>(new() { ["Name"] = "Stockholm Impact" });
@@ -83,12 +92,26 @@ sealed class CheckStore : IDataSnapshotStore
 }
 sealed class FixtureHandler : HttpMessageHandler
 {
-    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\n");
+    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\n2. Test Gamma - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\n");
+    readonly byte[] matchIndex = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { new MatchDataIndexEntry { CompetitionDate = new DateTime(2026, 10, 17), CompetitionName = "Testcup", File = "testcup.json" } }));
+    readonly byte[] matches = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { new DivisionMatch {
+        Category = "Mönster Pojkar Kadetter VIT", Discipline = "PATTERN", MatchId = 10, MatchNumber = 1, Finished = 1,
+        RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 5, RedFlags = 2,
+        BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 3, BlueFlags = 1,
+        WinnerId = 1, Winner = "Test Alpha - Testklubb", Ring = "A" } }));
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
     {
-        var bytes = request.RequestUri!.AbsolutePath == "/manifest.json" ? Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new ChagiDataManifest {
-            Version = "fixture", Files = [new() { Path = "results/2026-10-17_testcup.txt", Sha256 = Convert.ToHexString(SHA256.HashData(text)) }]
-        })) : text;
+        var bytes = request.RequestUri!.AbsolutePath switch {
+            "/manifest.json" => Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new ChagiDataManifest {
+                Version = "fixture", Files = [
+                    new() { Path = "results/2026-10-17_testcup.txt", Sha256 = Convert.ToHexString(SHA256.HashData(text)) },
+                    new() { Path = "matches/index.json", Sha256 = Convert.ToHexString(SHA256.HashData(matchIndex)) },
+                    new() { Path = "matches/testcup.json", Sha256 = Convert.ToHexString(SHA256.HashData(matches)) }]
+            })),
+            "/matches/index.json" => matchIndex,
+            "/matches/testcup.json" => matches,
+            _ => text
+        };
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
     }
 }
