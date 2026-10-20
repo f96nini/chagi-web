@@ -43,6 +43,16 @@ var id = ResultLinks.FighterId(data.Fighters.First());
 Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile links");
 var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
 Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && profile.Contains("VS · Inbördes möten") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and link to VS");
+Check(profile.Contains("Badges") && profile.Contains("Klubblogotyp för Testklubb") && profile.Contains("images/club-placeholder.svg") && !profile.Contains("Porträtt av Test Alpha"), "Fighter profile offers Badges and uses the club logo in its header");
+var badgeAwards = CompetitorBadgeCalculator.Calculate(data.Fighters.First(), data.Fighters);
+Check(badgeAwards.Any(badge => badge.Id == "first-medal" && badge.IconSource == "bronze_large.png") &&
+      badgeAwards.Any(badge => badge.Id == "first-gold" && badge.IconSource == "gold_large.png"),
+      "Published fighter results unlock the same first-medal and first-gold badges as the app");
+var badgeCards = await Render<FighterBadges>(new() { ["Awards"] = badgeAwards });
+Check(badgeCards.Contains("Första medaljen") && badgeCards.Contains("images/badges/bronze_large.png") &&
+      badgeCards.Contains("Uppnådd") && badgeCards.Contains("Första guldet"), "Badge cards render artwork and award dates");
+var emptyBadges = await Render<FighterBadges>();
+Check(emptyBadges.Contains("Inga badges upplåsta än"), "A fighter without awards has an explicit empty Badges state");
 var vs = await Render<Chagi.Web.Pages.FighterVs>(new() { ["Id"] = id });
 Check(vs.Contains("Test Gamma") && vs.Contains("Vinnare: Test Alpha") && vs.Contains("Matchpoäng: 5 – 3") && vs.Contains("Matchdetaljer"), "VS renders a real match with result, opponent and details link");
 var competition = await Render<Chagi.Web.Pages.CompetitionDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()) });

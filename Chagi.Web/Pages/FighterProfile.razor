@@ -7,9 +7,16 @@
 @if (Fighter is { } fighter)
 {
     var medals = FighterMedalSummaryService.Build(fighter, Data!.Fighters, discipline);
-    <div class="profile-header"><Avatar Name="@fighter.FullName" Url="@Images.Fighter(Id)" Alt="@($"Porträtt av {fighter.FullName}")" Size="large" /><div class="page-intro"><span class="eyebrow">FIGHTERPROFIL · @fighter.Team</span><h1>@fighter.FullName<span class="accent">.</span></h1><p>@(fighter.CurrentAgeClass.HasValue ? RankingClassFilterService.ToDisplayName(fighter.CurrentAgeClass.Value) : "Klass ej angiven") · Senaste registrerade bälte: @fighter.LatestBelt.Name</p></div></div>
+    <div class="profile-header"><a class="profile-club-logo" href="@($"klubbar/{Uri.EscapeDataString(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)}")" aria-label="@($"Till klubbprofilen för {fighter.Team}")"><Avatar Name="@fighter.Team" Url="@Images.Club(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)" Alt="@($"Klubblogotyp för {fighter.Team}")" Size="large" /></a><div class="page-intro"><span class="eyebrow">FIGHTERPROFIL · @fighter.Team</span><h1>@fighter.FullName<span class="accent">.</span></h1><p>@(fighter.CurrentAgeClass.HasValue ? RankingClassFilterService.ToDisplayName(fighter.CurrentAgeClass.Value) : "Klass ej angiven") · Senaste registrerade bälte: @fighter.LatestBelt.Name</p></div></div>
     <div class="profile-stats"><div><span>Medaljer</span><Medals Gold="medals.GoldCount" Silver="medals.SilverCount" Bronze="medals.BronzeCount" /></div><div><span>Medaljpoäng</span><strong>@Results.Sum(r => r.PointsAwarded)</strong></div><div><span>Tävlingar</span><strong>@medals.CompetitionCount</strong></div><div><span>Poängligan, samma kön</span><strong>@(medals.PointsLeaguePosition > 0 ? $"#{medals.PointsLeaguePosition}" : "–")</strong></div></div>
-    <nav class="profile-tabs" aria-label="Fighterprofil"><span aria-current="page">Tävlingshistorik</span><a href="@($"fighters/{Id}/vs")">VS · Inbördes möten <span aria-hidden="true">↗</span></a></nav>
+    <nav class="profile-tabs" aria-label="Fighterprofil"><button type="button" class="@(!showBadges ? "active" : "")" aria-current="@(!showBadges ? "page" : null)" @onclick="() => showBadges = false">Tävlingshistorik</button><button type="button" class="@(showBadges ? "active" : "")" aria-current="@(showBadges ? "page" : null)" @onclick="() => showBadges = true">Badges</button><a href="@($"fighters/{Id}/vs")">VS · Inbördes möten <span aria-hidden="true">↗</span></a></nav>
+    @if (showBadges)
+    {
+        <div class="section-heading"><h2>Badges<span class="accent">.</span></h2><span class="category-chip">@Badges.Count upplåsta</span></div>
+        <FighterBadges Awards="Badges" />
+    }
+    else
+    {
     <div class="section-heading"><h2>Tävlingshistorik<span class="accent">.</span></h2><label class="inline-select">Gren<select @bind="discipline">@foreach(var d in Enum.GetValues<CompetitionDisciplineE>()) { <option value="@d">@d</option> }</select></label></div>
     @if (Results.Count == 0) { <div class="empty-state"><h2>Inga resultat i denna gren</h2><p>Välj en annan gren för att se fler resultat.</p></div> }
     else
@@ -23,11 +30,27 @@
         </tbody></table></div>
     }
     <p class="source-note">Poängligan använder samma 5/3/1-poäng och medaljbaserade särskiljning som Chagi-appen. En saknad placering ger noll poäng.</p>
+    }
 }
 else if (!Busy && Data != null) { <div class="empty-state"><h1>Profilen finns inte</h1><p>Sök efter namnet i fighterlistan. Klubbens namn kan ha uppdaterats.</p></div> }
 @code {
     [Parameter] public string Id { get; set; } = "";
     CompetitionDisciplineE discipline;
+    bool showBadges;
+    ResultsData? badgeData;
+    Guid? badgeFighterId;
+    IReadOnlyList<CompetitorBadgeAward> badgeAwards = [];
     Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.FighterId(f) == Id);
     List<CompetitionResult> Results => Fighter?.Results.Where(r => discipline == CompetitionDisciplineE.Alla || r.Discipline == discipline).OrderByDescending(r => r.CompetitionDate).ThenBy(r => r.Discipline).ToList() ?? [];
+    IReadOnlyList<CompetitorBadgeAward> Badges {
+        get {
+            if (Data == null || Fighter is not { } fighter) return [];
+            if (!ReferenceEquals(badgeData, Data) || badgeFighterId != fighter.Id) {
+                badgeAwards = CompetitorBadgeCalculator.Calculate(fighter, Data.Fighters);
+                badgeData = Data;
+                badgeFighterId = fighter.Id;
+            }
+            return badgeAwards;
+        }
+    }
 }

@@ -1,0 +1,26 @@
+@if (Awards.Count == 0)
+{
+    <div class="empty-state"><h2>Inga badges upplåsta än</h2><p>Badges visas här när fighterprofilens resultat uppfyller villkoren.</p></div>
+}
+else
+{
+    <div class="fighter-badge-grid">
+        @foreach (var badge in Awards)
+        {
+            <article class="fighter-badge" @key="badge.Id">
+                <img src="@($"images/badges/{badge.IconSource}")" alt="" width="72" height="72" loading="lazy" decoding="async" />
+                <div>
+                    <h3>@badge.Title</h3>
+                    <p class="fighter-badge-date">Uppnådd @badge.AchievedDate.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("sv-SE"))</p>
+                    @if (!string.IsNullOrWhiteSpace(badge.Description))
+                    {
+                        <p class="fighter-badge-description">@badge.Description</p>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CompetitorBadgeAward> Awards { get; set; } = [];
+}
