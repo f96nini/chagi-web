@@ -1,0 +1,130 @@
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models;
+using ITF_Taekwondo_Gradering.Models.Ranking;
+
+FileSystem.AppDataDirectory = Path.Combine(Path.GetTempPath(), "chagi-belt-checks-" + Guid.NewGuid().ToString("N"));
+var synced = Path.Combine(FileSystem.AppDataDirectory, "Data", "synced");
+Directory.CreateDirectory(Path.Combine(synced, "matches"));
+var scenarios = new (string Name, string Single, string Combined, ChildBelt Belt)[]
+{
+    ("White Fighter", "VIT", "VIT/GUL", ChildBelt.Kup10_1),
+    ("Yellow Fighter", "GUL", "GUL/GRÖN", ChildBelt.Kup8_1),
+    ("Green Fighter", "GRÖN", "GRÖN/BLÅ", ChildBelt.Kup6_1),
+    ("Blue Fighter", "BLÅ", "BLÅ/RÖD", ChildBelt.Kup6_1),
+    ("Red Fighter", "RÖD", "RÖD/SVART", ChildBelt.Kup6_1),
+    ("Black Fighter", "SVART", "RÖD/SVART", ChildBelt.Kup5_2),
+    ("White Kup", "9 Kup", "10-7 Kup", ChildBelt.Kup10_1),
+    ("Yellow Kup", "8 Kup", "8-5 Kup", ChildBelt.Kup8_1),
+    ("Green Kup", "6 Kup", "8-5 Kup", ChildBelt.Kup6_1),
+    ("Black Dan", "1 Dan", "RÖD/SVART", ChildBelt.Kup5_2)
+};
+var classes = scenarios.SelectMany(scenario => new[]
+{
+    (Division: $"Mönster Pojkar Kadetter {scenario.Single}", Participant: $"{scenario.Name} - Testklubb"),
+    (Division: $"Spec. Pojkar Kadetter {scenario.Combined}", Participant: $"{scenario.Name} - Testklubb")
+}).ToList();
+classes.Add(("Mönster Pojkar Kadetter GUL", "Progress Fighter - Testklubb"));
+classes.Add(("Spec. Pojkar Kadetter GUL/GRÖN", "Progress Fighter - Testklubb"));
+var scenarioFile = Path.Combine(synced, "2025-10-17_color-cases.txt");
+await File.WriteAllTextAsync(scenarioFile, Results("Color cases", "2025-10-17", classes));
+await File.WriteAllTextAsync(Path.Combine(synced, "2024-10-17_older.txt"),
+    Results("Older competition", "2024-10-17", [("Mönster Pojkar Kadetter VIT", "Progress Fighter - Testklubb")]));
+
+// Karl's reported classes in Stenungsund 37: two white classes, followed by two mixed classes.
+await File.WriteAllTextAsync(Path.Combine(synced, "2026-10-17_stenungsund.txt"),
+    "Stenungsund 37\n2026-10-17\nStenungsund\n" +
+    "Sparring Pojkar Kadetter VIT -160cm\n3. Karl Anefors - Frölunda\n" +
+    "Mönster Flickor/Pojkar Kadetter VIT\n3. Karl Anefors - Frölunda\n" +
+    "Spec. Pojkar Kadetter VIT/GUL -160cm\n0. Karl Anefors - Frölunda\n" +
+    "Kross Pojkar Kadetter VIT/GUL -160cm\n0. Karl Anefors - Frölunda\n");
+await File.WriteAllTextAsync(Path.Combine(synced, "2026-09-26_torslanda.txt"),
+    "Torslandacupen\n2026-09-26\nTorslanda\nSpec. Pojkar Kadetter VIT/GUL -150cm/-160cm\n3. Karl Anefors - Frölunda\n");
+
+var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+await File.WriteAllTextAsync(Path.Combine(synced, "matches", "index.json"), JsonSerializer.Serialize(new[]
+{
+    new MatchDataIndexEntry { CompetitionDate = new(2025, 10, 17), CompetitionName = "Match-only event", File = "match-only.json" }
+}, jsonOptions));
+await File.WriteAllTextAsync(Path.Combine(synced, "matches", "match-only.json"), JsonSerializer.Serialize(new[]
+{
+    new DivisionMatch { MatchId = 1, RedId = 1, RedParticipant = "Matchonly Fighter - Testklubb", Category = "Mönster Pojkar Kadetter GUL", Discipline = "PATTERN" },
+    new DivisionMatch { MatchId = 2, RedId = 1, RedParticipant = "Matchonly Fighter - Testklubb", Category = "Spec. Pojkar Kadetter GUL/GRÖN", Discipline = "SPEC_TECH" }
+}, jsonOptions));
+
+var fighters = await CompetitorRepository.GetAllAsync();
+CheckColors(fighters);
+var karl = fighters.Single(f => f.FullName == "Karl Anefors");
+Check(karl.LatestBelt.Level == ChildBelt.Kup10_1.Level && karl.Results.Count == 5,
+    "Karl's latest white classes outweigh mixed white/yellow classes without losing any results");
+var ranking = RankingService.BuildAllSections(fighters, true, CompetitionDisciplineE.Alla, CompetitorSortE.TotalPoints);
+Check(ranking.Single(s => s.Entries.Any(e => e.Competitor.Id == karl.Id)).BeltGroup == RankingBeltGroupE.Vitt,
+    "Karl appears in the white-belt ranking group");
+Check(fighters.Single(f => f.FullName == "Progress Fighter").LatestBelt.Level == ChildBelt.Kup8_1.Level,
+    "The latest competition's yellow class replaces an older white class");
+Check(fighters.Single(f => f.FullName == "Matchonly Fighter").LatestBelt.Level == ChildBelt.Kup8_1.Level,
+    "Participants imported only from match data use the same specific-belt rule");
+
+// Reverse source class order. A new source fingerprint rebuilds the repository.
+await File.WriteAllTextAsync(scenarioFile, Results("Color cases", "2025-10-17", classes.AsEnumerable().Reverse()));
+ResetMemoryCache();
+fighters = await CompetitorRepository.GetAllAsync();
+Check(scenarios.All(scenario => fighters.Single(f => f.FullName == scenario.Name).LatestBelt.Level == scenario.Belt.Level),
+    "Every color and Kup/Dan case is independent of source row order");
+
+// Load a current cache with a deliberately wrong belt and reversed class order.
+var cachePath = Path.Combine(FileSystem.AppDataDirectory, "competitors.v11.json");
+var cache = JsonNode.Parse(await File.ReadAllTextAsync(cachePath))!.AsArray();
+var cachedKarl = cache.Single(item => item!["FirstName"]!.GetValue<string>() == "Karl")!;
+var cachedId = cachedKarl["Id"]!.GetValue<string>();
+cachedKarl["LatestBelt"] = "8 Kup-1";
+cachedKarl["Results"] = new JsonArray(cachedKarl["Results"]!.AsArray().Reverse().Select(result => result!.DeepClone()).ToArray());
+await File.WriteAllTextAsync(cachePath, cache.ToJsonString());
+ResetMemoryCache();
+var restored = (await CompetitorRepository.GetAllAsync()).Single(f => f.FullName == "Karl Anefors");
+Check(restored.Id.ToString() == cachedId && restored.LatestBelt.Level == ChildBelt.Kup10_1.Level,
+    "Loading an existing cache corrects Karl's belt using all classes, regardless of their order");
+
+await File.WriteAllTextAsync(Path.Combine(synced, "2026-09-01_next.txt"),
+    Results("Next competition", "2026-09-01", [
+        ("Mönster Pojkar Kadetter GRÖN", "Progress Fighter - Testklubb"),
+        ("Spec. Pojkar Kadetter GRÖN/BLÅ", "Progress Fighter - Testklubb")
+    ]));
+ResetMemoryCache();
+var progressed = (await CompetitorRepository.GetAllAsync()).Single(f => f.FullName == "Progress Fighter");
+Check(progressed.LatestBelt.Level == ChildBelt.Kup6_1.Level,
+    "A subsequent competition updates the belt again instead of locking an older classification");
+Console.WriteLine("All belt classification checks passed.");
+
+void CheckColors(List<Competitor> competitors)
+{
+    foreach (var scenario in scenarios)
+        Check(competitors.Single(f => f.FullName == scenario.Name).LatestBelt.Level == scenario.Belt.Level,
+            $"Single {scenario.Single} class outweighs combined {scenario.Combined} class");
+}
+static string Results(string name, string date, IEnumerable<(string Division, string Participant)> classes) =>
+    $"{name}\n{date}\nStenungsund\n" + string.Join("\n", classes.Select(entry => $"{entry.Division}\n0. {entry.Participant}")) + "\n";
+static void ResetMemoryCache() => typeof(CompetitorRepository)
+    .GetField("_cache", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, null);
+static void Check(bool condition, string description)
+{
+    if (!condition) throw new Exception(description);
+    Console.WriteLine("PASS: " + description);
+}
+
+public class Color { public static Color FromArgb(string value) => new(); }
+public static class Preferences
+{
+    public static string Get(string key, string fallback) => fallback;
+    public static void Set(string key, string value) { }
+    public static bool ContainsKey(string key) => false;
+}
+public static class FileSystem
+{
+    public static string AppDataDirectory { get; set; } = "";
+    public static Task<Stream> OpenAppPackageFileAsync(string file) => file == "matches/index.json"
+        ? Task.FromResult<Stream>(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("[]")))
+        : throw new FileNotFoundException(file);
+}

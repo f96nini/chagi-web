@@ -1,0 +1,277 @@
+using System.Reflection;
+using System.Text.Json;
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models.Ranking;
+
+var date = new DateTime(2026, 10, 17);
+const string competition = "Stenungsund 37";
+const string tul = "Mönster Pojkar Kadetter GRÖN";
+const string sparring = "Sparring Pojkar Kadetter GRÖN -150cm";
+const string sourceFolke = "Folke Beecken - Göteborg Kampsportsförening";
+// Six finished matches from Stenungsund 37, including two meetings with Nathaniel.
+var matches = new List<DivisionMatch>
+{
+    Duel(40250, "PATTERN", tul, "Edin Osmanspahic - Kärra", sourceFolke, 0, 2),
+    Duel(40255, "PATTERN", tul, sourceFolke, "Hampus Huss - Partille", 0, 2),
+    Duel(40491, "SPARRING", sparring, sourceFolke, "Nathaniel Racho - Kärra", 0, 2),
+    Duel(40492, "SPARRING", sparring, sourceFolke, "George Eliasson - Hisingen", 2, 0),
+    Duel(40482, "SPARRING", sparring, "Aston Haglund - Frölunda", sourceFolke, 0, 2),
+    Duel(40484, "SPARRING", sparring, sourceFolke, "Nathaniel Racho - Kärra", 2, 0)
+};
+var history = new[] { new CompetitionMatchHistory(date, competition, matches) };
+var folke = Fighter("Folke", "Beecken", "GBG Kampsport");
+var summary = HeadToHeadService.Build(folke, history, [folke]);
+Check(Meetings(summary) == 6 && summary.Sum(s => s.Opponents.Count) == 5,
+    "Folke's GBG profile finds all six Stenungsund matches against five opponents");
+Check(Section(summary, CompetitionDisciplineE.Tul).Opponents.Sum(o => o.MeetingCount) == 2
+    && Section(summary, CompetitionDisciplineE.Sparring).Opponents.Sum(o => o.MeetingCount) == 4,
+    "Folke's two pattern and four sparring matches remain in the correct disciplines");
+var nathaniel = Section(summary, CompetitionDisciplineE.Sparring).Opponents.Single(o => o.Name == "Nathaniel Racho");
+Check(nathaniel.MeetingCount == 2 && nathaniel.Wins == 1 && nathaniel.Losses == 1,
+    "Repeated meetings preserve the win/loss totals");
+foreach (var alias in new[] { "Billdal", "GBG Kampsport", "Göteborg Kampsport", "Göteborg Kampsportsförening" })
+{
+    folke.Team = alias;
+    Check(Meetings(HeadToHeadService.Build(folke, history, [folke])) == 6,
+        $"The same history is found from a profile named {alias}");
+}
+folke.Team = "GBG Kampsport";
+var edin = Fighter("Edin", "Osmanspahic", "Kärra");
+var reverse = Section(HeadToHeadService.Build(edin, history, [folke, edin]), CompetitionDisciplineE.Tul).Opponents.Single();
+Check(reverse.Team == "GBG Kampsport" && reverse.Losses == 1 && reverse.Name == folke.FullName,
+    "The opponent's VS shows the canonical club name and the opposite outcome");
+
+var per = Fighter("Per", "Test", "Frölunda");
+var aliasMatches = new[] { "Billdal", "Göteborg Kampsportsförening", "GBG Kampsport" }
+    .Select((alias, index) => Duel(100 + index, "SPARRING", sparring,
+        "Per Test - Frölunda", $"Folke Beecken - {alias}", 2, 0)).ToList();
+aliasMatches.Add(Duel(103, "SPARRING", sparring, "Per Test - Frölunda", "Folke Beecken - Partille", 0, 2));
+aliasMatches.Add(Duel(104, "SPARRING", sparring, "Per Test - Frölunda", "Folke Beecken - Testklubb A", 2, 0));
+aliasMatches.Add(Duel(105, "SPARRING", sparring, "Per Test - Frölunda", "Folke Beecken - Testklubb B", 2, 0));
+aliasMatches.Add(Duel(106, "SPARRING", sparring, "Per Test - Frölunda", "Folke Beecken - Billdal Ny förening", 2, 0));
+var aliases = Section(HeadToHeadService.Build(per, [new(date, competition, aliasMatches)], [per]), CompetitionDisciplineE.Sparring).Opponents;
+Check(aliases.Single(o => o.Team == "GBG Kampsport").MeetingCount == 3,
+    "A single opponent is aggregated across historical and current club aliases");
+Check(aliases.Count == 5 && aliases.Single(o => o.Team == "Partille").Losses == 1,
+    "Identical names at different clubs, including unknown clubs, stay separate");
+Check(aliases.Single(o => o.Team == "Billdal Ny förening").MeetingCount == 1,
+    "A club name merely containing Billdal is not merged into GBG Kampsport");
+
+foreach (var (discipline, code) in new[] { (CompetitionDisciplineE.Specialtekniker, "SPEC_TECH"), (CompetitionDisciplineE.Kross, "POWER_BREAK") })
+{
+    var division = code + " Kadetter GRÖN";
+    var ann = Fighter("Ann", "Test", "GBG Kampsport");
+    folke.Results = [Result(date, competition, division, discipline, 1)];
+    ann.Results = [Result(date, competition, division, discipline, 3)];
+    var attempts = new[] { "Folke Beecken - Billdal", sourceFolke, "Ann Test - Göteborg Kampsport", "Ann Test - GBG Kampsport" }
+        .Select((participant, index) => new DivisionMatch
+        {
+            MatchId = 200 + index, Finished = 1, Discipline = code, Category = division,
+            RedId = 200 + index, RedParticipant = participant
+        }).ToList();
+    var attemptHistory = new[] { new CompetitionMatchHistory(date, competition, attempts) };
+    var forward = Section(HeadToHeadService.Build(folke, attemptHistory, [folke, ann]), discipline).Opponents;
+    var backward = Section(HeadToHeadService.Build(ann, attemptHistory, [folke, ann]), discipline).Opponents;
+    Check(forward.Count == 1 && forward[0].Name == "Ann Test" && forward[0].MeetingCount == 1,
+        $"{discipline}: alias entries cause neither duplicate comparisons nor a self-comparison");
+    Check(forward[0].Wins == 1 && backward.Single().Losses == 1
+        && forward[0].Meetings[0].FighterPlacement == 1 && forward[0].Meetings[0].OpponentPlacement == 3,
+        $"{discipline}: medal placements resolve both participants' club aliases symmetrically");
+}
+
+// Historical podiums infer only strict orders within one individual category.
+var oldDate = date.AddYears(-2);
+var liv = Fighter("Liv", "Zetter", "GBG Kampsport");
+var annOld = Fighter("Ann", "Öst", "A");
+var bo = Fighter("Bo", "Alm", "B");
+var zoe = Fighter("Zoe", "Abel", "C");
+var podiumFighters = new[] { liv, annOld, bo, zoe };
+foreach (var discipline in new[] { CompetitionDisciplineE.Tul, CompetitionDisciplineE.Sparring,
+             CompetitionDisciplineE.Kross, CompetitionDisciplineE.Specialtekniker })
+{
+    var division = $"Historisk {discipline} kadetter";
+    liv.Results.Add(Result(oldDate, "Äldre cup", division, discipline, 2));
+    annOld.Results.Add(Result(oldDate, "Äldre cup", division, discipline, 1));
+    bo.Results.Add(Result(oldDate, "Äldre cup", division, discipline, 3));
+    zoe.Results.Add(Result(oldDate, "Äldre cup", division, discipline, 3));
+}
+// Duplicate imports and an aliased copy must not multiply meetings or add self-meetings.
+annOld.Results.Add(annOld.Results[0]);
+var livAlias = Fighter("Liv", "Zetter", "Billdal");
+livAlias.Results.AddRange(liv.Results);
+var podiumSources = podiumFighters.Append(livAlias).ToList();
+var podiumSummary = HeadToHeadService.Build(liv, [], podiumSources);
+Check(Meetings(podiumSummary) == 12 && podiumSummary.All(s => s.Opponents.Count == 3),
+    "All four disciplines infer one meeting per distinct podium opponent, ignoring duplicates and self aliases");
+Check(podiumSummary.All(s => s.Opponents.Select(o => o.Name).SequenceEqual(new[] { "Ann Öst", "Bo Alm", "Zoe Abel" })),
+    "Discipline lists sort by first name, independently of surname and meeting frequency");
+Check(podiumSummary.All(s => s.Opponents[0].Losses == 1 && s.Opponents.Skip(1).All(o => o.Wins == 1)),
+    "Silver loses to gold and beats both bronze medallists");
+Check(podiumSummary.SelectMany(s => s.Opponents).SelectMany(o => o.Meetings)
+        .All(m => m.IsPlacementComparison && !m.HasDetailedResult && m.Discipline != CompetitionDisciplineE.Alla),
+    "Historical meetings retain their discipline and have no invented detailed scores");
+var bronzeSummary = HeadToHeadService.Build(bo, [], podiumSources);
+Check(Meetings(bronzeSummary) == 8 && bronzeSummary.All(s => s.Opponents.All(o => o.Losses == 1 && o.Name != "Zoe Abel")),
+    "Shared bronzes do not imply a meeting; reverse podium results are symmetric");
+var groupedPodium = HeadToHeadService.GroupByOpponent(podiumSummary);
+Check(groupedPodium.Count == 3 && groupedPodium[0].Losses == 4
+    && groupedPodium[1].Wins == 4 && groupedPodium.All(o => o.Meetings.Select(m => m.Discipline).Distinct().Count() == 4),
+    "Opponent mode sums all disciplines while retaining each discipline's meetings");
+
+// Only a shared competition/date/category and two distinct podium places infer a meeting.
+var invalid = Fighter("Fel", "Klass", "D");
+invalid.Results.AddRange(new[]
+{
+    Result(oldDate.AddDays(1), "Äldre cup", "Historisk Tul kadetter", CompetitionDisciplineE.Tul, 1),
+    Result(oldDate, "Annan cup", "Historisk Tul kadetter", CompetitionDisciplineE.Tul, 1),
+    Result(oldDate, "Äldre cup", "Annan klass", CompetitionDisciplineE.Tul, 1),
+    Result(oldDate, "Äldre cup", "Historisk Tul kadetter", CompetitionDisciplineE.Tul, 0),
+    Result(oldDate, "Äldre cup", "Historisk Sparring kadetter", CompetitionDisciplineE.Sparring, 4),
+    Result(oldDate, "Äldre cup", "Historisk Kross kadetter", CompetitionDisciplineE.Kross, 2),
+    Result(oldDate, "Äldre cup", "Historisk Specialtekniker kadetter", CompetitionDisciplineE.Tul, 1)
+});
+liv.Results.Add(Result(DateTime.Today.AddDays(1), "Framtida", "Klass", CompetitionDisciplineE.Tul, 1));
+invalid.Results.Add(Result(DateTime.Today.AddDays(1), "Framtida", "Klass", CompetitionDisciplineE.Tul, 2));
+liv.Results.Add(Result(oldDate, "Lagcup", "Lagmönster", CompetitionDisciplineE.Tul, 1));
+invalid.Results.Add(Result(oldDate, "Lagcup", "Lagmönster", CompetitionDisciplineE.Tul, 2));
+Check(Meetings(HeadToHeadService.Build(liv, [], podiumSources.Append(invalid))) == 12,
+    "Different dates, competitions, categories, disciplines, equal ranks, non-medals, future events and team events add no meetings");
+
+var actual = Duel(500, "PATTERN", "Historisk Tul kadetter", "Liv Zetter - Billdal", "Bo Alm - B", 0, 2);
+actual.RedFlags = 1.5m;
+actual.BlueFlags = 3.5m;
+var mixedHistory = new[] { new CompetitionMatchHistory(oldDate, "Äldre cup", [actual, actual]) };
+var mixed = HeadToHeadService.Build(liv, mixedHistory, podiumSources);
+var actualMeeting = Section(mixed, CompetitionDisciplineE.Tul).Opponents.Single().Meetings.Single();
+Check(Meetings(mixed) == 10 && actualMeeting.Outcome == HeadToHeadOutcome.Loss
+    && actualMeeting.HasDetailedResult && actualMeeting.FighterFlags == 1.5m && actualMeeting.OpponentFlags == 3.5m,
+    "Actual matches take precedence over podium inference for the entire category, preserving scores and flags");
+var unfinished = Duel(501, "PATTERN", "Historisk Tul kadetter", "Liv Zetter - GBG Kampsport", "Ann Öst - A", 2, 0);
+unfinished.Finished = 0;
+Check(Meetings(HeadToHeadService.Build(liv, [new(oldDate, "Äldre cup", [unfinished])], podiumSources)) == 9,
+    "An unfinished match category does not fall back to invented podium meetings");
+var winnerOnly = Duel(502, "SPARRING", sparring, "Liv Zetter - GBG Kampsport", "Bo Alm - B", 2, 0);
+winnerOnly.RedPoints = winnerOnly.BluePoints = null;
+var sparse = HeadToHeadService.Build(liv, [new(date, competition, [winnerOnly])], podiumSources);
+Check(Meetings(sparse) == 13 && Section(sparse, CompetitionDisciplineE.Sparring).Opponents.Single(o => o.Name == "Bo Alm").Wins == 2
+    && !Section(sparse, CompetitionDisciplineE.Sparring).Opponents.Single(o => o.Name == "Bo Alm").Meetings.Single(m => m.Date == date).HasDetailedResult,
+    "Finished matches with only a known winner are counted without inventing result details");
+
+var allOpponents = HeadToHeadService.GroupByOpponent(HeadToHeadService.Build(per,
+    [new(date, competition, aliasMatches.Concat([Duel(107, "PATTERN", tul, "Per Test - Frölunda", sourceFolke, 0, 2)]).ToList())], [per]));
+Check(allOpponents.Count == 5 && allOpponents.Single(o => o.Team == "GBG Kampsport") is { MeetingCount: 4, Wins: 3, Losses: 1 },
+    "Opponent mode merges club aliases across disciplines while separating same names at different clubs");
+var swedishNames = new[] { "Östen", "Åke", "Ägir", "Zara", "Adam" }
+    .Select((name, i) => Duel(600 + i, "PATTERN", tul, "Per Test - Frölunda", $"{name} Test - A", 2, 0)).ToList();
+Check(Section(HeadToHeadService.Build(per, [new(date, competition, swedishNames)], [per]), CompetitionDisciplineE.Tul)
+        .Opponents.Select(o => o.Name).SequenceEqual(new[] { "Adam Test", "Zara Test", "Åke Test", "Ägir Test", "Östen Test" }),
+    "Swedish first-name sorting places Å, Ä and Ö after Z");
+Check(HeadToHeadService.GroupByOpponent(HeadToHeadService.Build(per, [], [per])).Count == 0,
+    "A fighter without shared meetings has an empty opponent list");
+
+var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+var rawJson = JsonSerializer.Serialize(matches, jsonOptions);
+var parsed = CompetitionMatchService.ParseMatches(rawJson, tul);
+Check(parsed.Count == 2 && parsed[0].BlueParticipant == "Folke Beecken - GBG Kampsport"
+    && parsed[0].Winner == "Folke Beecken - GBG Kampsport",
+    "Match details and the winner text use GBG Kampsport");
+var historical = CompetitionMatchService.ParseMatches(JsonSerializer.Serialize(new[]
+{
+    Duel(300, "PATTERN", tul, "Folke Beecken - Billdal", "Per Test - Frölunda", 2, 0),
+    new DivisionMatch { MatchId = 301, Category = tul, RedParticipant = "?", BlueParticipant = null }
+}, jsonOptions), tul);
+Check(historical[0].RedParticipant == "Folke Beecken - GBG Kampsport" && historical[0].Outcome.Contains("GBG Kampsport"),
+    "Historical Billdal match details use the new name, including the outcome label");
+Check(historical[1].RedParticipant == "?" && historical[1].BlueParticipant == null,
+    "Unknown participant placeholders remain unknown");
+
+// Run the real repository and persistent cache against isolated app storage.
+FileSystem.AppDataDirectory = Path.Combine(Path.GetTempPath(), "chagi-head-to-head-" + Guid.NewGuid().ToString("N"));
+var synced = Path.Combine(FileSystem.AppDataDirectory, "Data", "synced");
+Directory.CreateDirectory(Path.Combine(synced, "matches"));
+await File.WriteAllTextAsync(Path.Combine(synced, "matches", "index.json"), JsonSerializer.Serialize(new[]
+{
+    new MatchDataIndexEntry { CompetitionDate = date, CompetitionName = competition, File = "stenungsund.json" }
+}, jsonOptions));
+await File.WriteAllTextAsync(Path.Combine(synced, "matches", "stenungsund.json"), rawJson);
+await File.WriteAllTextAsync(Path.Combine(synced, "2019-10-12_historical.txt"),
+    "Historisk tävling\n2019-10-12\nStenungsund\nMönster Pojkar Miniorer GUL\n1. Folke Beecken - Billdal\n");
+await File.WriteAllTextAsync(Path.Combine(synced, "2024-10-12_historical.txt"),
+    "Senare tävling\n2024-10-12\nStenungsund\nSparring Pojkar Kadetter GRÖN\n2. Folke Beecken - Göteborg Kampsport\n");
+await File.WriteAllTextAsync(Path.Combine(synced, "2026-10-17_stenungsund.txt"),
+    $"{competition}\n2026-10-17\nStenungsund\n{tul}\n0. {sourceFolke}\n{sparring}\n1. {sourceFolke}\n");
+Preferences.Set("favorite_competitors.v1", "[\"folke beecken|billdal\"]");
+var fighters = await CompetitorRepository.GetAllAsync();
+var imported = fighters.Single(f => f.FullName == "Folke Beecken");
+Check(CompetitionCatalogService.BuildCatalog(fighters).Single(entry => entry.CompetitionDate == date && entry.CompetitionName == competition).ParticipantCount == 6,
+    "Competition totals include match-only participants once, even with repeated meetings and multiple disciplines");
+Check(imported.Team == "GBG Kampsport" && imported.Results.Count == 4 && imported.TotalPoints == 13,
+    "Historical Billdal and current Göteborg results form one GBG profile with all results and points");
+Check(imported.IsFavorite && CompetitorRepository.IsFavorite(imported),
+    "An old Billdal favorite follows the renamed profile");
+Check(Meetings(await HeadToHeadService.GetAsync(imported)) == 6,
+    "The complete repository-to-VS workflow finds all six Stenungsund matches");
+await CompetitorRepository.SetFavoriteAsync(imported, false);
+Check(!CompetitorRepository.IsFavorite(imported) && !Preferences.Get("favorite_competitors.v1", "").Contains("billdal"),
+    "Removing a migrated favorite saves the new identity without resurrecting the old alias");
+await CompetitorRepository.SetFavoriteAsync(imported, true);
+
+ResetMemoryCache();
+var cached = (await CompetitorRepository.GetAllAsync()).Single(f => f.FullName == "Folke Beecken");
+Check(cached.Id == imported.Id && cached.Team == "GBG Kampsport" && cached.Results.Count == 4 && cached.IsFavorite,
+    "The persistent cache and favorites retain the unified history after restart");
+var cachePath = Path.Combine(FileSystem.AppDataDirectory, "competitors.v11.json");
+await File.WriteAllTextAsync(cachePath, (await File.ReadAllTextAsync(cachePath)).Replace("GBG Kampsport", "Billdal"));
+await File.WriteAllTextAsync(Path.Combine(FileSystem.AppDataDirectory, "competitors.v11.metadata.json"), "{\"SourceFingerprint\":\"previous-parser-version\"}");
+ResetMemoryCache();
+var rebuilt = (await CompetitorRepository.GetAllAsync()).Single(f => f.FullName == "Folke Beecken");
+Check(rebuilt.Team == "GBG Kampsport" && rebuilt.Results.Count == 4 && rebuilt.IsFavorite,
+    "An outdated cache is rebuilt from historical and current source data under GBG Kampsport");
+var previousCompetition = new CompetitionCatalogEntry { Key = "old-key", CompetitionDate = date, CompetitionName = competition };
+var currentCompetition = new CompetitionCatalogEntry { Key = "new-key-with-venue", CompetitionDate = date, CompetitionName = competition, CompetitionCity = "Stenungsund" };
+Check(ReferenceEquals(CompetitionCatalogService.FindCurrent([currentCompetition], previousCompetition), currentCompetition),
+    "An open competition adopts updated results even when the new data adds or corrects its venue");
+Check(CompetitionCatalogService.FindCurrent([currentCompetition], new CompetitionCatalogEntry { CompetitionDate = date.AddDays(1), CompetitionName = competition }) == null,
+    "A competition refresh does not rebind to a same-name event on another date");
+Console.WriteLine("All head-to-head and historical club checks passed.");
+
+static DivisionMatch Duel(int id, string discipline, string category, string red, string blue, decimal redPoints, decimal bluePoints) => new()
+{
+    MatchId = id, Finished = 1, Discipline = discipline, Category = category,
+    RedId = id * 2, BlueId = id * 2 + 1, RedParticipant = red, BlueParticipant = blue,
+    RedPoints = redPoints, BluePoints = bluePoints,
+    WinnerId = redPoints > bluePoints ? id * 2 : id * 2 + 1, Winner = redPoints > bluePoints ? red : blue
+};
+static Competitor Fighter(string first, string last, string team) => new() { FirstName = first, LastName = last, Team = team };
+static CompetitionResult Result(DateTime date, string competition, string division, CompetitionDisciplineE discipline, int placement) => new()
+{
+    CompetitionDate = date, CompetitionName = competition, Division = division, Discipline = discipline, Placement = placement
+};
+static HeadToHeadSection Section(IReadOnlyList<HeadToHeadSection> sections, CompetitionDisciplineE discipline) => sections.Single(s => s.Discipline == discipline);
+static int Meetings(IReadOnlyList<HeadToHeadSection> sections) => sections.SelectMany(s => s.Opponents).Sum(o => o.MeetingCount);
+static void Check(bool condition, string description)
+{
+    if (!condition) throw new Exception(description);
+    Console.WriteLine("PASS: " + description);
+}
+static void ResetMemoryCache()
+{
+    typeof(CompetitorRepository).GetField("_cache", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, null);
+    typeof(CompetitorRepository).GetField("_favoriteKeys", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, null);
+}
+
+public class Color { public static Color FromArgb(string value) => new(); }
+public static class Preferences
+{
+    static readonly Dictionary<string, string> Values = new();
+    public static string Get(string key, string fallback) => Values.GetValueOrDefault(key, fallback);
+    public static void Set(string key, string value) => Values[key] = value;
+    public static bool ContainsKey(string key) => Values.ContainsKey(key);
+}
+public static class FileSystem
+{
+    public static string AppDataDirectory { get; set; } = "";
+    public static Task<Stream> OpenAppPackageFileAsync(string file) => file == "matches/index.json"
+        ? Task.FromResult<Stream>(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("[]")))
+        : throw new FileNotFoundException(file);
+}

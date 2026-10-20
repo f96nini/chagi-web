@@ -1,0 +1,84 @@
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Chagi.Core.Data;
+using Chagi.Core.Presentation;
+using Chagi.Web.Components;
+using Chagi.Web.Layout;
+using Chagi.Web.Services;
+using ITF_Taekwondo_Gradering.WebConnection;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+// Compile the actual Razor files and render them in-process, with no browser or
+// network access. This does not verify WebAssembly boot, CSS layout or JS events.
+var services = new ServiceCollection();
+services.AddLogging();
+services.AddSingleton<NavigationManager>(new CheckNavigation());
+services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+services.AddSingleton<PublicImages>();
+var source = new PublishedResultsClient(new HttpClient(new FixtureHandler()), new Uri("https://fixture.invalid/"), new CheckStore());
+services.AddSingleton(source);
+using var provider = services.BuildServiceProvider();
+await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());
+async Task<string> Render<T>(Dictionary<string, object?>? parameters = null) where T : IComponent => await renderer.Dispatcher.InvokeAsync(async () => {
+    var component = await renderer.RenderComponentAsync<T>(parameters == null ? ParameterView.Empty : ParameterView.FromDictionary(parameters));
+    return WebUtility.HtmlDecode(component.ToHtmlString());
+});
+var count = 0;
+void Check(bool condition, string message) { if (!condition) throw new Exception(message); count++; Console.WriteLine("PASS: " + message); }
+var home = await Render<Chagi.Web.Pages.Home>();
+Check(home.Contains("Testcup") && !home.Contains("Det gick inte att hämta resultaten"), "Home renders published competitions without a false error state");
+var fighters = await Render<Chagi.Web.Pages.Fighters>();
+Check(fighters.Contains("Test Alpha") && fighters.Contains("Testklubb") && !fighters.Contains("fighter.Team"), "Fighter names and clubs are component values rather than literal binding expressions");
+Check(fighters.Contains(">TA</span>") && !fighters.Contains(">F</span>"), "Avatar initials come from the fighter name");
+var data = await source.LoadAsync();
+var id = ResultLinks.FighterId(data.Fighters.First());
+Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile links");
+var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
+Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and show competition history");
+var competition = await Render<Chagi.Web.Pages.CompetitionDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()) });
+Check(competition.Contains("<details") && competition.Contains("Test Alpha") && competition.Contains("Klassresultat"), "Competition details render the actual divisions and placements");
+var ranking = await Render<Chagi.Web.Pages.Ranking>();
+Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter"), "Ranking renders separate gender/class groups from the shared calculator");
+var filtered = await Render<NoMatchFighters>();
+Check(filtered.Contains("Inga fighters hittades") && !filtered.Contains("Test Alpha"), "A query with no matching fighter renders an explicit empty state");
+var status = await Render<DataStatus>(new() { ["Busy"] = false });
+Check(string.IsNullOrWhiteSpace(status), "A loaded page without an error or notice has no false status banner");
+var error = await Render<DataStatus>(new() { ["Error"] = "Offline test" });
+Check(error.Contains("role=\"alert\"") && error.Contains("Offline test") && error.Contains("Försök igen"), "Data errors expose an alert and retry action");
+var loading = await Render<DataStatus>(new() { ["Busy"] = true });
+Check(loading.Contains("role=\"status\"") && loading.Contains("Hämtar resultaten"), "Loading exposes an accessible status");
+var layout = await Render<MainLayout>();
+Check(layout.Contains("Hoppa till innehållet") && layout.Contains("aria-label=\"Huvudmeny\"") && layout.Contains("id=\"main\""), "Layout exposes a skip link, named navigation and main content");
+Console.WriteLine($"All {count} Razor rendering checks passed.");
+
+sealed class CheckNavigation : NavigationManager
+{
+    public CheckNavigation() => Initialize("https://fixture.invalid/", "https://fixture.invalid/");
+    protected override void NavigateToCore(string uri, bool forceLoad) { }
+}
+sealed class NoMatchFighters : Chagi.Web.Pages.Fighters
+{
+    protected override void OnInitialized() { Query = "missing"; base.OnInitialized(); }
+}
+sealed class CheckStore : IDataSnapshotStore
+{
+    public Task<PublishedSnapshot?> ReadAsync(CancellationToken token = default) => Task.FromResult<PublishedSnapshot?>(null);
+    public Task WriteAsync(PublishedSnapshot snapshot, CancellationToken token = default) => Task.CompletedTask;
+}
+sealed class FixtureHandler : HttpMessageHandler
+{
+    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\n");
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        var bytes = request.RequestUri!.AbsolutePath == "/manifest.json" ? Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new ChagiDataManifest {
+            Version = "fixture", Files = [new() { Path = "results/2026-10-17_testcup.txt", Sha256 = Convert.ToHexString(SHA256.HashData(text)) }]
+        })) : text;
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
+    }
+}

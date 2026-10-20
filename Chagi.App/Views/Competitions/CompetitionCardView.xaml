@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:views="clr-namespace:ITF_Taekwondo_Gradering.Views"
+             x:Class="ITF_Taekwondo_Gradering.Views.CompetitionCardView"
+             x:Name="Self">
+    <Border Stroke="{AppThemeBinding Light=#D9E2EC, Dark=#3E4C59}"
+            StrokeThickness="1"
+            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1F2933}"
+            StrokeShape="RoundRectangle 12"
+            Padding="12">
+        <VerticalStackLayout Spacing="10">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="10">
+                <Label Text="{Binding Source={x:Reference Self}, Path=Competition.Title}"
+                       FontAttributes="Bold" />
+                <Label Grid.Column="1"
+                       Text="{Binding Source={x:Reference Self}, Path=Competition.TotalPointsLabel}"
+                       HorizontalTextAlignment="End"
+                       FontAttributes="Bold" />
+            </Grid>
+            <Label Text="{Binding Source={x:Reference Self}, Path=Competition.City}"
+                   FontSize="13"
+                   IsVisible="{Binding Source={x:Reference Self}, Path=Competition.HasCity}"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+            
+            <VerticalStackLayout Spacing="10"
+                                 BindableLayout.ItemsSource="{Binding Source={x:Reference Self}, Path=Competition.Results}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="views:CompetitionCardResultRow">
+                        <VerticalStackLayout Spacing="2">
+                            <VerticalStackLayout.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding TapCommand}" />
+                            </VerticalStackLayout.GestureRecognizers>
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="10">
+                                <Border WidthRequest="28"
+                                        HeightRequest="28"
+                                        Padding="0"
+                                        StrokeThickness="0"
+                                        BackgroundColor="Transparent"
+                                        VerticalOptions="Center">
+                                    <Image Source="{Binding MedalImageSource}"
+                                           IsVisible="{Binding HasMedal}"
+                                           WidthRequest="28"
+                                           HeightRequest="28"
+                                           Aspect="AspectFit" />
+                                </Border>
+
+                                <Label Grid.Column="1"
+                                       Text="{Binding DisciplineLabel}"
+                                       VerticalTextAlignment="Center"
+                                       FontAttributes="Bold" />
+
+                                <Label Grid.Column="2"
+                                       Text="{Binding MedalLabel}"
+                                       VerticalTextAlignment="Center"
+                                       FontAttributes="Bold" />
+                            </Grid>
+
+                            <HorizontalStackLayout Spacing="8"
+                                                   Margin="38,0,0,0"
+                                                   VerticalOptions="Center">
+                                <views:BeltIconsView BeltGroup="{Binding BeltGroup}" />
+                                <Label Text="{Binding CategoryClass}"
+                                       FontSize="13"
+                                       VerticalTextAlignment="Center"
+                                       IsVisible="{Binding HasCategoryClass}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

@@ -1,0 +1,334 @@
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models.Clubs;
+using ITF_Taekwondo_Gradering.Models.Ranking;
+
+var firstDate = new DateTime(2026, 9, 12);
+var secondDate = firstDate.AddMonths(1);
+var anna = Fighter("Anna", "Billdal", false, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate), Result(2, CompetitionDisciplineE.Sparring, firstDate),
+    Result(3, CompetitionDisciplineE.Tul, secondDate));
+var bo = Fighter("Bo", "Göteborg Kampsport", true, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate), Result(1, CompetitionDisciplineE.Sparring, secondDate));
+var camilla = Fighter("Camilla", "GBG Kampsport", false, RankingAgeClassE.Kadetter,
+    Result(1, CompetitionDisciplineE.Kross, firstDate));
+var unknown = Fighter("Okänd klass", "GBG Kampsport", null, null,
+    Result(0, CompetitionDisciplineE.Tul, secondDate), Result(4, CompetitionDisciplineE.Sparring, firstDate));
+var otherClub = Fighter("Annan klubb", "Göteborg Fighter", true, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate));
+var participants = new[] { anna, bo, camilla, unknown, otherClub };
+var classes = Enum.GetValues<RankingAgeClassE>();
+var all = ClubDetailsService.Build(participants, "gbg-kampsport", GenderFilterMode.All, CompetitionDisciplineE.Alla, classes);
+Check(all.Fighters.Select(fighter => fighter.FullName).SequenceEqual(new[] { "Bo", "Anna", "Camilla", "Okänd klass" }),
+    "Club aliases merge, another Göteborg club stays excluded, and fighters sort by descending medal points");
+Check(all.Fighters.Select(fighter => fighter.Score).SequenceEqual(new[] { 10, 9, 5, 0 }),
+    "Medals award 5/3/1; participation and fourth place award zero, irrespective of stored ranking points");
+Check(all.Competitions.Select(competition => competition.Date).SequenceEqual(new[] { secondDate, firstDate })
+    && all.Competitions.Select(competition => competition.TotalPoints).SequenceEqual(new[] { 6, 18 }),
+    "Competitions default to newest date first while points count only the club's fighters and disciplines");
+var byPoints = ClubDetailsService.SortCompetitions(all.Competitions, ClubCompetitionSortMode.MedalPoints);
+Check(byPoints.Select(competition => competition.TotalPoints).SequenceEqual(new[] { 18, 6 })
+    && ClubDetailsService.SortCompetitions(byPoints).Select(competition => competition.Date).SequenceEqual(new[] { secondDate, firstDate }),
+    "Sorting switches between descending medal points and descending dates without changing the snapshot");
+Check(all.Competitions[1].FighterCount == 4 && all.Competitions[1].GoldCount == 3 && all.Competitions[1].SilverCount == 1,
+    "A fighter competing in multiple disciplines is counted once in the competition");
+Check(all.TotalPoints == all.Competitions.Sum(competition => competition.TotalPoints),
+    "Both lists agree on the club's total medal points");
+
+var filtered = ClubDetailsService.Build(participants, "gbg-kampsport", GenderFilterMode.Female,
+    CompetitionDisciplineE.Tul, new[] { RankingAgeClassE.Miniorer });
+Check(filtered.Fighters.Single().Competitor == anna && filtered.TotalPoints == 6,
+    "Gender, current age class and discipline combine in the Fighters view");
+Check(filtered.Competitions.Count == 2 && filtered.Competitions[0].TotalPoints == 1 && filtered.Competitions[1].TotalPoints == 5
+    && ClubDetailsService.SortCompetitions(filtered.Competitions, ClubCompetitionSortMode.MedalPoints)[0].TotalPoints == 5,
+    "Both sort orders use the same gender, class and discipline filters");
+var male = ClubDetailsService.Build(participants, "gbg-kampsport", GenderFilterMode.Male, CompetitionDisciplineE.Alla, classes);
+Check(male.Fighters.Single().Competitor == bo && male.TotalPoints == 10, "Male filter excludes female and unknown gender fighters");
+Check(ClubDetailsService.Build(participants, "gbg-kampsport", GenderFilterMode.All,
+    CompetitionDisciplineE.Alla, []).Fighters.Count == 0, "Explicitly disabling all classes empties the lists, including unknown classes");
+var none = ClubDetailsService.Build(participants, "next-level", GenderFilterMode.All, CompetitionDisciplineE.Alla, classes);
+Check(none.Fighters.Count == 0 && none.Competitions.Count == 0 && none.TotalPoints == 0,
+    "A club without results still has a valid empty detail page");
+var kross = ClubDetailsService.Build(participants, "gbg-kampsport", GenderFilterMode.All, CompetitionDisciplineE.Kross, classes);
+Check(kross.Fighters.Count == 4 && kross.Competitions.Count == 1 && kross.TotalPoints == 5,
+    "Fighters without results in a selected discipline remain available with zero points, as in Alla Fighters");
+
+var sameDay = Fighter("Två tävlingar", "GBG Kampsport", true, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate), Result(2, CompetitionDisciplineE.Tul, firstDate));
+sameDay.Results[1].CompetitionCity = "Stockholm";
+Check(ClubDetailsService.Build([sameDay], "gbg-kampsport", GenderFilterMode.All,
+    CompetitionDisciplineE.Alla, classes).Competitions.Count == 2,
+    "Different venues on the same date do not merge");
+var differentTimes = Fighter("Olika klockslag", "GBG Kampsport", true, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate.AddHours(9)), Result(2, CompetitionDisciplineE.Sparring, firstDate));
+var sameEvent = ClubDetailsService.Build([differentTimes], "gbg-kampsport", GenderFilterMode.All,
+    CompetitionDisciplineE.Alla, classes).Competitions.Single();
+Check(sameEvent.Date == firstDate && sameEvent.TotalPoints == 8 && sameEvent.FighterCount == 1,
+    "Match and medal data for the same event merge even when only one source includes a time of day");
+Check(anna.Results.Count == 3 && anna.Results[0].PointsAwarded == 999,
+    "Filtering leaves repository results unchanged");
+Check(ClubCatalogService.ResolveClubImage("Hisingen") == "hisingen.jpg" &&
+    ClubCatalogService.ResolveClubImage("Stockholm") == "stockholm.png",
+    "Existing Hisingen and Stockholm logos are linked instead of the black placeholder");
+Check(ClubCatalogService.ResolveClubImage("Torslanda") == "torslanda.png",
+    "Torslanda uses the real replacement logo supplied in the workspace");
+
+Check(ClubCatalogService.ResolveClubImage("Kungälv") == "kungalv.png",
+    "SVG club logos reference the PNG generated by MAUI");
+var clubImages = ClubCatalogService.GetAllClubs().Select(club => club.ImageSource)
+    .Where(image => image != null).Cast<string>().Append(ClubCatalogService.PlaceholderImage)
+    .Distinct(StringComparer.Ordinal).ToList();
+Check(clubImages.All(image => !image.Contains('/') && !image.Contains('\\') && !image.EndsWith(".svg")),
+    "Club list, detail pages and fighter profiles use flat MAUI image resource names");
+if (args.Length == 1)
+{
+    var assembly = System.Reflection.Assembly.Load(File.ReadAllBytes(args[0]));
+    var images = new ITF_Taekwondo_Gradering.Services.Images.EmbeddedImageStore(assembly);
+    foreach (var image in clubImages)
+    {
+        Check(images.Contains(image), $"Windows assembly contains club image {image}");
+        using var stream = images.Open(image);
+        Check(stream.Length > 0, $"Club image {image} opens without a loose image file");
+    }
+
+    foreach (var (scale, expected) in new[] { (1f, 100), (1.25f, 125), (1.3f, 150), (2f, 200), (3f, 400), (5f, 400),
+        (0f, 100), (-1f, 100), (float.NaN, 100), (float.PositiveInfinity, 100) })
+    {
+        using var actual = images.Open("CLUB_PLACEHOLDER.PNG", scale);
+        using var expectedStream = assembly.GetManifestResourceStream($"Chagi.Images.club_placeholder.scale-{expected}.png")!;
+        Check(ReadBytes(actual).SequenceEqual(ReadBytes(expectedStream)),
+            $"Image scale {scale} selects the {expected}% variant, also with uppercase names");
+    }
+
+    using (var first = images.Open("bgtxt.png"))
+    using (var second = images.Open("bgtxt.png"))
+    {
+        first.ReadByte();
+        Check(!ReferenceEquals(first, second) && second.Position == 0, "Repeated image loads use independent streams");
+        first.Dispose();
+        Check(second.ReadByte() >= 0, "Disposing one image stream leaves another usable");
+    }
+    foreach (var unknownImage in new[] { "missing.png", "../club_placeholder.png", "C:\\club_placeholder.png" })
+    {
+        Check(!images.Contains(unknownImage), "Image store does not resolve external paths: " + unknownImage);
+        try { images.Open(unknownImage).Dispose(); throw new Exception("Unknown image unexpectedly opened."); }
+        catch (FileNotFoundException) { }
+    }
+
+    var sourceImages = Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "../../../../Resources/Images"), "*", SearchOption.AllDirectories)
+        .Select(path => Path.GetExtension(path).Equals(".svg", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetFileNameWithoutExtension(path) + ".png" : Path.GetFileName(path)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    Check(sourceImages.SetEquals(images.FileNames), "Every app image, including SVG output, is embedded with its logical filename");
+
+    static byte[] ReadBytes(Stream stream)
+    {
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
+}
+
+var manyCompetitions = Fighter("Flera tävlingar", "Frölunda", true, RankingAgeClassE.Miniorer,
+    Enumerable.Range(0, 8).Select(index => Result(3, CompetitionDisciplineE.Tul, firstDate.AddDays(index))).ToArray());
+var clubRanking = ClubStatisticsService.BuildClubSummaries(participants.Append(manyCompetitions));
+Check(clubRanking[0].Id == "gbg-kampsport" && clubRanking[0].TotalPoints == 24 &&
+    clubRanking[1].Id == "frolunda" && clubRanking[1].TotalPoints == 8 &&
+    clubRanking[0].CompetitionCount < clubRanking[1].CompetitionCount,
+    "The main club list ranks by medal points rather than number of competitions");
+var tiedClub = Fighter("Lika poäng", "Lindome", false, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate), Result(2, CompetitionDisciplineE.Tul, firstDate));
+var tiedRanking = ClubStatisticsService.BuildClubSummaries([manyCompetitions, tiedClub]);
+Check(tiedRanking[0].Id == "lindome" && tiedRanking[0].TotalPoints == tiedRanking[1].TotalPoints,
+    "Equal club points use medal counts to break ties consistently with other rankings");
+var tiedCompetitions = new[]
+{
+    new ClubCompetitionEntry { Name = "Äldre silver", Date = firstDate, TotalPoints = 6, SilverCount = 2 },
+    new ClubCompetitionEntry { Name = "Äldre guld", Date = firstDate, TotalPoints = 6, GoldCount = 1, BronzeCount = 1 },
+    new ClubCompetitionEntry { Name = "Senaste silver", Date = secondDate, TotalPoints = 6, SilverCount = 2 }
+};
+Check(ClubDetailsService.SortCompetitions(tiedCompetitions, ClubCompetitionSortMode.MedalPoints).Select(entry => entry.Name)
+        .SequenceEqual(new[] { "Äldre guld", "Senaste silver", "Äldre silver" }),
+    "Equal medal points use medal counts, then newest date, to break ties");
+Check(ClubDetailsService.SortCompetitions(tiedCompetitions)[0].Name == "Senaste silver"
+    && tiedCompetitions[0].Name == "Äldre silver",
+    "Date sorting prioritizes the newest event over medal counts and does not mutate source entries");
+Check(ClubDetailsService.SortCompetitions([], ClubCompetitionSortMode.MedalPoints).Count == 0,
+    "Both sort modes support clubs and filters with no competitions");
+
+var annaId = Guid.NewGuid();
+var medalCompetition = new CompetitionCatalogEntry
+{
+    CompetitionDate = secondDate, CompetitionName = "Vald tävling", CompetitionCity = "Göteborg",
+    Divisions =
+    [
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Tul, IsMale = true, AgeClass = RankingAgeClassE.Miniorer,
+            Division = "Mönster Pojkar Miniorer GRÖN", BeltGroup = "GRÖN", CategoryClass = "A", HasMatchData = true,
+            Results =
+            [
+                Medal("Bo", "Billdal", 1), Medal("Per", "Göteborg Kampsport", 2),
+                Medal("Kim", "GBG Kampsport", 3), Medal("Olle", "GBG Kampsport", 3),
+                Medal("Bo", "Göteborg Fighter", 1), Medal("Utan medalj", "GBG Kampsport", 4),
+                Medal("Deltagare", "GBG Kampsport", 0), Medal("Okänd klubb", "Testklubb A", 1)
+            ]
+        },
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Tul, IsMale = false, AgeClass = RankingAgeClassE.Kadetter,
+            Results = [new CompetitionPlacementEntry { CompetitorId = annaId, CompetitorName = "Anna", Team = "Billdal", Placement = 3 }]
+        },
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Sparring, IsMale = false, AgeClass = RankingAgeClassE.Miniorer,
+            Results = [new CompetitionPlacementEntry { CompetitorId = annaId, CompetitorName = "Anna", Team = "GBG Kampsport", Placement = 1 }]
+        },
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Specialtekniker,
+            Results = [Medal("Okänd klass", "Göteborg Kampsportsförening", 3)]
+        },
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Kross, IsMale = true, AgeClass = RankingAgeClassE.Miniorer,
+            Results = [Medal("Annan klubb", "Göteborg Fighter", 1)]
+        }
+    ]
+};
+var sourceCount = medalCompetition.Divisions.Sum(division => division.Results.Count);
+var clubMedals = ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "gbg-kampsport",
+    GenderFilterMode.All, CompetitionDisciplineE.Alla, classes);
+var allMedals = clubMedals.SelectMany(division => division.Results).ToList();
+Check(clubMedals.Count == 4 && allMedals.Count == 7
+    && allMedals.All(result => result.Placement is >= 1 and <= 3 && ClubCatalogService.FindClub(result.Team)?.Id == "gbg-kampsport"),
+    "Club competition details show only the chosen club's medals, resolving aliases and excluding fourth places, participation and other clubs");
+Check(allMedals.Count(result => result.Placement == 3) == 4 && allMedals.Count(result => result.CompetitorId == annaId) == 2,
+    "Shared bronze medals and all medals won by one fighter in different divisions remain visible");
+var selectedMedals = ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "gbg-kampsport",
+    GenderFilterMode.Female, CompetitionDisciplineE.Sparring, [RankingAgeClassE.Miniorer]);
+Check(selectedMedals.Single().Results.Single().CompetitorId == annaId && selectedMedals[0].Results[0].Placement == 1,
+    "Gender, division age class and discipline filters combine on the club's competition medals");
+Check(ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "gbg-kampsport",
+    GenderFilterMode.Female, CompetitionDisciplineE.Tul, [RankingAgeClassE.Miniorer]).Count == 0,
+    "Competition class filters use the medal's division age class, just like the full competition page");
+Check(ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "gbg-kampsport",
+    GenderFilterMode.Male, CompetitionDisciplineE.Specialtekniker, [RankingAgeClassE.Miniorer]).Single().Results.Count == 1,
+    "Unknown gender and class follow the full competition page's filtering rules");
+Check(ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "gbg-kampsport",
+    GenderFilterMode.All, CompetitionDisciplineE.Alla, []).Count == 0
+    && ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "gbg-kampsport",
+        GenderFilterMode.All, CompetitionDisciplineE.Kross, classes).Count == 0
+    && ClubCompetitionMedalsService.BuildDivisions(medalCompetition, "next-level",
+        GenderFilterMode.All, CompetitionDisciplineE.Alla, classes).Count == 0,
+    "Empty class selections, disciplines without club medals and clubs without medals produce an empty view");
+Check(clubMedals[0].Division == medalCompetition.Divisions[0].Division && clubMedals[0].BeltGroup == "GRÖN"
+    && clubMedals[0].CategoryClass == "A" && !ReferenceEquals(clubMedals[0], medalCompetition.Divisions[0]),
+    "Club medal cards retain division and belt metadata without reusing the full competition's mutable division objects");
+clubMedals[0].IsOtherParticipantsExpanded = true;
+Check(medalCompetition.Divisions.Sum(division => division.Results.Count) == sourceCount
+    && medalCompetition.Divisions[0].Results.Any(result => result.Team == "Göteborg Fighter")
+    && medalCompetition.Divisions[0].Results.Any(result => result.Placement == 0)
+    && medalCompetition.Divisions[0].HasMatchData && !medalCompetition.Divisions[0].IsOtherParticipantsExpanded,
+    "The full competition retains every club, non-medallist and match flag for the Till tävling link");
+var clubCounts = ClubStatisticsService.BuildClubSummaries(participants.Append(
+    Fighter(" Anna ", "GBG Kampsport", false, RankingAgeClassE.Miniorer)));
+Check(clubCounts.Single(club => club.Id == "gbg-kampsport").FighterCount == 4
+    && clubCounts.Single(club => club.Id == "goteborg-fighter").FighterCount == 1,
+    "Club cards count unique fighters across aliases, repeated disciplines and non-medallists");
+Check(clubCounts.Single(club => club.Id == "gbg-kampsport").ParticipationText == "2 tävlingar · 4 fighters",
+    "Club cards show the competition count followed by the number of individual fighters");
+
+var skurup = Fighter("Skurup fighter", "Skurup", false, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate));
+var mariestad = Fighter("Mariestad fighter", "Mariestad", true, RankingAgeClassE.Kadetter,
+    Result(3, CompetitionDisciplineE.Sparring, firstDate));
+var newClubs = ClubStatisticsService.BuildClubSummaries([skurup, mariestad]);
+Check(newClubs.Single(club => club.Name == "Skurup") is { FighterCount: 1, GoldCount: 1 }
+    && newClubs.Single(club => club.Name == "Mariestad") is { FighterCount: 1, BronzeCount: 1 },
+    "Clubs found in results are listed even when absent from the logo catalog");
+var skurupId = newClubs.Single(club => club.Name == "Skurup").Id;
+Check(ClubDetailsService.Build([skurup, mariestad], skurupId, GenderFilterMode.All,
+    CompetitionDisciplineE.Alla, classes).Fighters.Single().Competitor == skurup,
+    "A result-only club opens a detail page with the correct fighters");
+var newClubCompetition = new CompetitionCatalogEntry
+{
+    Divisions = [new CompetitionDivisionEntry
+    {
+        Discipline = CompetitionDisciplineE.Tul,
+        Results = [Medal("Skurup fighter", "Skurup", 1), Medal("Other", "Mariestad", 2)]
+    }]
+};
+Check(ClubCompetitionMedalsService.BuildDivisions(newClubCompetition, skurupId, GenderFilterMode.All,
+    CompetitionDisciplineE.Alla, classes).Single().Results.Single().Team == "Skurup",
+    "Result-only clubs retain their identity in competition medal lists");
+Check(ClubCatalogService.ResolveClub("Billdal Ny förening")?.Id != "gbg-kampsport"
+    && ClubCatalogService.ResolveClub("Göteborg Kampsportsförening")?.Id == "gbg-kampsport",
+    "Catalog aliases match exactly so a new club is not swallowed by a partial known name");
+
+var previousCulture = System.Globalization.CultureInfo.CurrentCulture;
+try
+{
+    System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+    var names = new[] { "Östen", "Åsa", "Ägir", "Zelda", "Olle" };
+    Check(names.OrderBy(name => name, SwedishNameComparer.Instance)
+        .SequenceEqual(new[] { "Olle", "Zelda", "Åsa", "Ägir", "Östen" }),
+        "Swedish name order remains O, Z, Å, Ä, Ö on a device with an English locale");
+    var alphabeticClubs = ClubStatisticsService.BuildClubSummaries(names.Select(name =>
+        Fighter(name, name, false, RankingAgeClassE.Miniorer, Result(1, CompetitionDisciplineE.Tul, firstDate))));
+    Check(alphabeticClubs.Where(club => club.FighterCount > 0).Select(club => club.Name)
+        .SequenceEqual(new[] { "Olle", "Zelda", "Åsa", "Ägir", "Östen" }),
+        "Club ranking ties use Swedish name order independently of the current culture");
+}
+finally { System.Globalization.CultureInfo.CurrentCulture = previousCulture; }
+
+var goldFighter = Fighter("Two golds", "Skurup", false, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate), Result(1, CompetitionDisciplineE.Tul, secondDate));
+var bronzeFighter = Fighter("Three bronzes", "Mariestad", false, RankingAgeClassE.Kadetter,
+    Result(3, CompetitionDisciplineE.Tul, firstDate), Result(3, CompetitionDisciplineE.Tul, secondDate),
+    Result(3, CompetitionDisciplineE.Tul, secondDate.AddDays(1)));
+var silverFighter = Fighter("Three silvers", "Skurup", false, RankingAgeClassE.Miniorer,
+    Result(2, CompetitionDisciplineE.Tul, firstDate), Result(2, CompetitionDisciplineE.Tul, secondDate),
+    Result(2, CompetitionDisciplineE.Sparring, firstDate));
+var maleLeader = Fighter("Other gender", "Skurup", true, RankingAgeClassE.Miniorer,
+    Result(1, CompetitionDisciplineE.Tul, firstDate), Result(1, CompetitionDisciplineE.Tul, secondDate),
+    Result(1, CompetitionDisciplineE.Tul, secondDate.AddDays(1)));
+var leagueFighters = new[] { goldFighter, bronzeFighter, silverFighter, maleLeader };
+var goldSummary = FighterMedalSummaryService.Build(goldFighter, leagueFighters, CompetitionDisciplineE.Alla);
+var bronzeSummary = FighterMedalSummaryService.Build(bronzeFighter, leagueFighters, CompetitionDisciplineE.Alla);
+Check(goldSummary.LeaguePosition == 3 && goldSummary.PointsLeaguePosition == 1
+    && bronzeSummary.LeaguePosition == 1 && bronzeSummary.PointsLeaguePosition == 3,
+    "Medal league counts medals while the points league uses 5/3/1, within the existing gender grouping");
+Check(FighterMedalSummaryService.Build(silverFighter, leagueFighters, CompetitionDisciplineE.Alla).LeaguePosition == 1
+    && bronzeSummary.TotalMedalCount == 3 && bronzeSummary.CompetitionCount == 3,
+    "Equal medal totals share a medal-league position regardless of medal color");
+var summaryTul = FighterMedalSummaryService.Build(silverFighter, leagueFighters, CompetitionDisciplineE.Tul);
+Check(summaryTul.TotalMedalCount == 2 && summaryTul.CompetitionCount == 2
+    && FighterMedalSummaryService.Build(anna, participants, CompetitionDisciplineE.Alla).CompetitionCount == 2,
+    "Discipline summaries filter their medals and count a competition once across disciplines");
+Check(FighterMedalSummaryService.Build(goldFighter, leagueFighters, CompetitionDisciplineE.Kross)
+    is { TotalMedalCount: 0, CompetitionCount: 0, LeaguePosition: 0, PointsLeaguePosition: 0 },
+    "An empty discipline has no invented medals or league position");
+Console.WriteLine("All club details checks passed.");
+
+static CompetitionPlacementEntry Medal(string name, string team, int placement)
+    => new() { CompetitorId = Guid.NewGuid(), CompetitorName = name, Team = team, Placement = placement };
+Competitor Fighter(string name, string team, bool? male, RankingAgeClassE? ageClass, params CompetitionResult[] results)
+    => new() { FirstName = name, Team = team, IsMale = male, CurrentAgeClass = ageClass, Results = results.ToList() };
+CompetitionResult Result(int placement, CompetitionDisciplineE discipline, DateTime date)
+    => new() { Placement = placement, Discipline = discipline, CompetitionDate = date,
+        CompetitionName = "Testcup", CompetitionCity = "Göteborg", PointsAwarded = 999 };
+static void Check(bool condition, string message)
+{
+    if (!condition) throw new Exception(message);
+    Console.WriteLine("PASS: " + message);
+}
+
+
+
+namespace ITF_Taekwondo_Gradering.Logic
+{
+    public static class CompetitorRepository
+    {
+        public static int GetChangeVersion() => 0;
+        public static Task<List<Competitor>> GetAllAsync() => throw new NotSupportedException();
+    }
+}

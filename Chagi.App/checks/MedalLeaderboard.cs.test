@@ -1,0 +1,180 @@
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models.Ranking;
+
+var date = new DateTime(2026, 10, 10);
+var participants = new List<Competitor>
+{
+    Participant("Zara", "Andersson", "A", 1, 1), // 10
+    Participant("Anna", "Berg", "A", 1, 1), // 10
+    Participant("Bo", "Carlsson", "B", 1, 2), // 8
+    Participant("Eva", "Dahl", "B", 2, 1), // 8
+    Participant("Alva", "Åberg", "A", 1, 3), // 6
+    Participant("Örjan", "Öberg", "A", 2, 2), // 6, same score with different medals
+    Participant("Zoe", "Zetterberg", "A", 2, 2), // 6
+    Participant("Ägir", "Äng", "A", 2, 2), // 6
+    Participant("Ylva", "von Berg", "A", 1), // 5, multi-part last name
+    Participant("Aina", "Berg", "A", 1), // 5
+    Participant("Aina", "Berg", "B", 1), // 5, distinct participant with same name
+    Participant("Åsa", "Andersson", "A", 3), // 1
+    Participant("Adam", "Berg", "A", 4), // 0
+    Participant("Bertil", "Andersson", "A", 0) // 0, participation only
+};
+// Results in another competition must never affect this leaderboard.
+participants[2].Results.Add(new CompetitionResult
+{
+    CompetitionDate = date.AddDays(1), CompetitionName = "Annan tävling", Placement = 1
+});
+
+var competition = CompetitionCatalogService.BuildCatalog(participants).Single(c => c.CompetitionDate == date);
+Check(competition.ParticipantCount == participants.Count,
+    "Participant totals count unique fighters across disciplines, including non-medallists and same-name fighters at different clubs");
+Check(new CompetitionCatalogEntry { CompetitionDate = new(2026, 9, 26), Divisions = competition.Divisions }.ParticipantCount == participants.Count,
+    "Complete participant totals start on the date of Torslandacupen, inclusively");
+Check(new CompetitionCatalogEntry { CompetitionDate = new(2026, 9, 25), Divisions = competition.Divisions }.ParticipantCount == null
+    && new CompetitionCatalogEntry { Divisions = competition.Divisions }.ParticipantCount == null,
+    "Older competitions and unknown dates do not present incomplete results as a full participant total");
+var groups = CompetitionMedalLeaderboardService.BuildGroups(competition.Divisions);
+Check(groups.Select(g => g.TotalPoints).SequenceEqual(new[] { 10, 8, 6, 5, 1, 0 }), "Points use 5/3/1, sum across disciplines and stay within the selected competition");
+Check(groups.Select(g => g.Position).SequenceEqual(new[] { 1, 2, 3, 4, 5, 6 }), "Tied leaders do not skip the silver or bronze group");
+Check(groups.Take(3).All(g => g.HasTrophy && g.Count >= 2) && groups.Skip(3).All(g => !g.HasTrophy), "Every tied podium participant shares a trophy group");
+Check(groups[0].Select(e => e.CompetitorName).SequenceEqual(new[] { "Zara Andersson", "Anna Berg" }), "Tied participants sort by surname rather than first name");
+Check(groups[2].Select(e => e.CompetitorLastName).SequenceEqual(new[] { "Zetterberg", "Åberg", "Äng", "Öberg" }), "Swedish surname order is stable, even for equal points with different medals");
+Check(groups[3].Select(e => e.CompetitorLastName).SequenceEqual(new[] { "Berg", "Berg", "von Berg" }), "Other participants are grouped by points and sorted by full surname");
+Check(groups[3].Select(e => e.CompetitorId).Distinct().Count() == 3, "Same-name participants from different clubs remain separate");
+Check(groups[3].Title == "Övriga deltagare" && groups.Skip(4).All(g => !g.HasTitle), "Remaining score groups share a single other-participants heading");
+Check(groups[^1].Select(e => e.CompetitorName).SequenceEqual(new[] { "Bertil Andersson", "Adam Berg" }), "Non-medallists and participation-only entries stay in the list with zero points");
+Check(groups.Sum(g => g.Count) == participants.Count, "Each competitor appears exactly once despite multiple disciplines");
+Check(groups.SelectMany(group => group).All(entry => entry.AgeClassLabel == "Minior"),
+    "Leaderboard shows the competition age class once, without gender, across disciplines");
+
+var sharedId = Guid.NewGuid();
+var multipleAgeClasses = new[] { RankingAgeClassE.Kadetter, RankingAgeClassE.Miniorer, RankingAgeClassE.Miniorer }
+    .Select(ageClass => new CompetitionDivisionEntry
+    {
+        AgeClass = ageClass,
+        Results = [new CompetitionPlacementEntry { CompetitorId = sharedId, Placement = 1 }]
+    });
+Check(CompetitionMedalLeaderboardService.BuildGroups(multipleAgeClasses).Single().Single().AgeClassLabel == "Minior, Kadett",
+    "A fighter entered in multiple age classes shows every distinct class in age order");
+var unknownAgeClass = new CompetitionDivisionEntry
+{
+    Results = [new CompetitionPlacementEntry { CompetitorId = Guid.NewGuid(), Placement = 1 }]
+};
+Check(CompetitionMedalLeaderboardService.BuildGroups([unknownAgeClass]).Single().Single().AgeClassLabel == "Åldersklass saknas",
+    "Missing age data is stated explicitly instead of inventing a class");
+
+var smallGroup = CompetitionParticipantListService.Build(Placements(1, 2, 3, 4));
+Check(smallGroup.Visible.Count == 4 && smallGroup.Hidden.Count == 0,
+    "Groups with four participants show everyone without expansion");
+var fiveParticipants = CompetitionParticipantListService.Build(Placements(1, 2, 3, 3, 4));
+Check(fiveParticipants.Visible.Count == 4 && fiveParticipants.Hidden.Count == 1,
+    "A fifth participant without a medal is hidden while both bronze medallists remain visible");
+var tiedMedals = CompetitionParticipantListService.Build(Placements(1, 1, 2, 3, 3, 4, 0));
+Check(tiedMedals.Visible.Count == 5 && tiedMedals.Hidden.Count == 2 && tiedMedals.Visible.All(result => result.Placement <= 3),
+    "Tied medals remain visible even when more than four fighters won medals");
+var medalsOnly = CompetitionParticipantListService.Build(Placements(1, 1, 2, 3, 3));
+Check(medalsOnly.Visible.Count == 5 && medalsOnly.Hidden.Count == 0,
+    "A group consisting entirely of medallists has no empty expansion");
+var noMedals = CompetitionParticipantListService.Build(Placements(0, 0, 0, 0, 0));
+Check(noMedals.Visible.Count == 0 && noMedals.Hidden.Count == 5,
+    "All participants remain available in unfinished groups with no awarded medals");
+var unorderedResults = Placements(0, 4, 2, 1, 8, 3, 5);
+var orderedParticipants = CompetitionParticipantListService.Build(unorderedResults);
+Check(orderedParticipants.Hidden.Select(result => result.Placement).SequenceEqual(new[] { 4, 5, 8, 0 })
+    && orderedParticipants.Visible.Concat(orderedParticipants.Hidden).Select(result => result.CompetitorId).Distinct().Count() == unorderedResults.Count,
+    "Expanded participants retain placement order and no fighter is lost or duplicated");
+var emptyParticipants = CompetitionParticipantListService.Build([]);
+Check(emptyParticipants.Visible.Count == 0 && emptyParticipants.Hidden.Count == 0,
+    "Empty groups show neither participant rows nor an expansion");
+Check(CompetitionMedalLeaderboardService.BuildGroups([]).Count == 0, "Empty competitions have no groups");
+var tiedOnly = CompetitionCatalogService.BuildCatalog(participants.Take(2)).Single();
+Check(CompetitionMedalLeaderboardService.BuildGroups(tiedOnly.Divisions).Count == 1, "A single score produces only the gold group");
+var twoScores = CompetitionCatalogService.BuildCatalog(participants.Take(3)).Single(c => c.CompetitionDate == date);
+Check(CompetitionMedalLeaderboardService.BuildGroups(twoScores.Divisions).Count == 2, "Two scores produce only gold and silver groups");
+var clubFighterId = Guid.NewGuid();
+var otherClubId = Guid.NewGuid();
+var clubCompetition = new CompetitionCatalogEntry
+{
+    Divisions =
+    [
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Tul, IsMale = true, AgeClass = RankingAgeClassE.Miniorer,
+            Results =
+            [
+                new CompetitionPlacementEntry { CompetitorId = clubFighterId, CompetitorName = "Klubbens medaljör", Team = "Billdal", Placement = 1 },
+                new CompetitionPlacementEntry { CompetitorId = otherClubId, CompetitorName = "Annan klubb", Team = "Frölunda", Placement = 1 },
+                new CompetitionPlacementEntry { CompetitorId = Guid.NewGuid(), Team = "GBG Kampsport", Placement = 4 }
+            ]
+        },
+        new CompetitionDivisionEntry
+        {
+            Discipline = CompetitionDisciplineE.Sparring, IsMale = false, AgeClass = RankingAgeClassE.Kadetter,
+            Results =
+            [
+                new CompetitionPlacementEntry { CompetitorId = clubFighterId, CompetitorName = "Klubbens medaljör", Team = "GBG Kampsport", Placement = 2 },
+                new CompetitionPlacementEntry { CompetitorId = otherClubId, CompetitorName = "Annan klubb", Team = "Frölunda", Placement = 1 },
+                new CompetitionPlacementEntry { CompetitorId = Guid.NewGuid(), Team = "GBG Kampsport", Placement = 0 }
+            ]
+        }
+    ]
+};
+var clubLeaderboard = CompetitionMedalLeaderboardService.BuildGroups(ClubCompetitionMedalsService.BuildDivisions(
+    clubCompetition, "gbg-kampsport", GenderFilterMode.All, CompetitionDisciplineE.Alla, Enum.GetValues<RankingAgeClassE>()));
+Check(clubLeaderboard.Count == 1 && clubLeaderboard[0].Single().CompetitorId == clubFighterId && clubLeaderboard[0].TotalPoints == 8,
+    "The club leaderboard counts only its medals across disciplines and aliases, excluding other clubs and zero-point participants");
+var filteredClubLeaderboard = CompetitionMedalLeaderboardService.BuildGroups(ClubCompetitionMedalsService.BuildDivisions(
+    clubCompetition, "gbg-kampsport", GenderFilterMode.Female, CompetitionDisciplineE.Sparring, [RankingAgeClassE.Kadetter]));
+Check(filteredClubLeaderboard.Single().TotalPoints == 3 && filteredClubLeaderboard[0].Single().AgeClassLabel == "Kadett",
+    "The club leaderboard honors the medal page's gender, discipline and class filters");
+Check(CompetitionMedalLeaderboardService.BuildGroups(clubCompetition.Divisions).SelectMany(group => group)
+        .Any(entry => entry.CompetitorId == otherClubId && entry.TotalPoints == 10),
+    "Opening a club leaderboard leaves the original full competition leaderboard intact");
+Console.WriteLine("All medal leaderboard checks passed.");
+
+Competitor Participant(string firstName, string lastName, string team, params int[] placements)
+{
+    var competitor = new Competitor { FirstName = firstName, LastName = lastName, Team = team };
+    competitor.Results = placements.Select((placement, index) => new CompetitionResult
+    {
+        CompetitorId = competitor.Id,
+        CompetitionDate = date,
+        CompetitionName = "Testtävling",
+        CompetitionCity = "Göteborg",
+        Discipline = index == 0 ? CompetitionDisciplineE.Tul : CompetitionDisciplineE.Sparring,
+        Division = index == 0 ? "Mönster Pojkar Miniorer" : "Sparring Pojkar Miniorer",
+        Placement = placement,
+        PointsAwarded = 999 // The leaderboard calculates from placements, not stored points.
+    }).ToList();
+    return competitor;
+}
+
+static List<CompetitionPlacementEntry> Placements(params int[] placements) => placements
+    .Select(placement => new CompetitionPlacementEntry { CompetitorId = Guid.NewGuid(), Placement = placement })
+    .ToList();
+
+static void Check(bool condition, string description)
+{
+    if (!condition) throw new Exception(description);
+    Console.WriteLine("PASS: " + description);
+}
+
+namespace ITF_Taekwondo_Gradering.Logic
+{
+    // These checks build real catalogs directly without loading application storage.
+    public static class CompetitorRepository
+    {
+        public static int GetChangeVersion() => 0;
+        public static Task<List<Competitor>> GetAllAsync() => throw new NotSupportedException();
+    }
+}
+
+
+
+// Leaderboard age labels use the real filter service's display names, without accessing storage.
+public static class Preferences
+{
+    public static string Get(string key, string fallback) => throw new NotSupportedException();
+    public static bool ContainsKey(string key) => throw new NotSupportedException();
+    public static void Set(string key, string value) => throw new NotSupportedException();
+}

@@ -1,0 +1,179 @@
+using System.Reflection;
+using Chagi.Core.Storage;
+using ITF_Taekwondo_Gradering;
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models.Ranking;
+
+static void Check(bool condition, string message)
+{
+    if (!condition) throw new Exception(message);
+    Console.WriteLine("PASS: " + message);
+}
+
+CorePreferences.Current = new TestPreferenceStore();
+var shell = new Shell();
+Shell.Current = shell;
+await NavigationUiService.GoToAsync("//competitions");
+Check(!NavigationUiService.IsHome, "A different Shell root is not the home page");
+await NavigationUiService.GoBackOrToAsync();
+Check(NavigationUiService.IsHome, "Back at a Shell root uses the fallback without trying a no-op pop");
+
+await NavigationUiService.GoToAsync("//competitions");
+await NavigationUiService.GoToAsync("CompetitionDetailsPage");
+var parent = shell.CurrentPage;
+await NavigationUiService.GoToAsync("DivisionMatchesPage");
+NavigationUiService.ConfigureBackButton(shell);
+Check(shell.CurrentPage.BackBehavior?.Command != null, "Detail page has a coordinated Shell back command");
+await NavigationUiService.GoBackOrToAsync();
+Check(ReferenceEquals(shell.CurrentPage, parent), "The in-app arrow returns to the previous detail page");
+await NavigationUiService.GoToAsync("DivisionMatchesPage");
+await NavigationUiService.GoHomeAsync();
+Check(NavigationUiService.IsHome && shell.Navigation.NavigationStack.Count == 1, "Home skips all detail levels");
+
+await NavigationUiService.GoToAsync("//calendar");
+shell.Navigation.ModalStack.Add(new Page());
+shell.Navigation.ModalStack.Add(new Page());
+await NavigationUiService.GoHomeAsync();
+Check(NavigationUiService.IsHome && shell.Navigation.ModalStack.Count == 0, "Home also dismisses modal pages");
+
+var oldPage = new Page();
+var oldRouteCount = shell.Routes.Count;
+await NavigationUiService.GoToAsync("stale-details", oldPage);
+Check(shell.Routes.Count == oldRouteCount, "A late result from an abandoned page cannot navigate");
+
+var payload = new object();
+object? received = null;
+shell.BeforeNavigate = route =>
+{
+    var key = route.Split('=')[1];
+    received = NavigationParameterStore.Take<object>(key);
+    return Task.CompletedTask;
+};
+await NavigationUiService.GoToWithParameterAsync("details", "payload", payload, shell.CurrentPage);
+Check(ReferenceEquals(payload, received), "Navigation parameters are delivered only for an accepted transition");
+shell.BeforeNavigate = null;
+
+var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+shell.BeforeNavigate = async route => { if (route == "slow-details") { started.SetResult(); await release.Task; } };
+var forward = NavigationUiService.GoToAsync("slow-details");
+await started.Task;
+await NavigationUiService.GoToAsync("duplicate-details");
+var home = NavigationUiService.GoHomeAsync();
+Check(!home.IsCompleted, "Android home request waits for an ongoing transition");
+release.SetResult();
+await Task.WhenAll(forward, home);
+Check(NavigationUiService.IsHome && !shell.Routes.Contains("duplicate-details"), "Repeated forward taps are ignored and queued home wins");
+
+shell.BeforeNavigate = _ => throw new InvalidOperationException("navigation failure");
+await NavigationUiService.GoToAsync("broken-route");
+Check(AppDiagnostics.Errors == 1 && shell.AlertCount == 1, "Navigation exceptions are logged and presented without escaping async handlers");
+shell.BeforeNavigate = null;
+await NavigationUiService.GoToAsync("//competitions");
+Check(!NavigationUiService.IsNavigating && !NavigationUiService.IsHome, "A failed transition releases the navigation lock");
+
+var lifetime = new PageLifetime();
+lifetime.Activate();
+var firstVisit = lifetime.Token;
+lifetime.Deactivate();
+Check(firstVisit.IsCancellationRequested && !lifetime.IsCurrent(firstVisit), "Leaving a page cancels its pending work");
+lifetime.Activate();
+Check(!lifetime.Token.IsCancellationRequested && !lifetime.IsCurrent(firstVisit), "Re-entering a page cannot revive stale results");
+
+var allClasses = Enum.GetValues<RankingAgeClassE>();
+Check(RankingClassFilterService.GetEnabledClasses().Count == allClasses.Length, "First launch enables every class");
+foreach (var ageClass in allClasses) RankingClassFilterService.SetEnabled(ageClass, false);
+Check(RankingClassFilterService.GetEnabledClasses().Count == 0, "The final checkbox can be unchecked without silently re-enabling it");
+typeof(RankingClassFilterService).GetField("_enabledClasses", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, null);
+Check(RankingClassFilterService.GetEnabledClasses().Count == 0, "An explicitly empty class selection survives process restart");
+RankingClassFilterService.SetEnabled(allClasses[0], true);
+var version = RankingClassFilterService.GetChangeVersion();
+RankingClassFilterService.SetEnabled(allClasses[0], true);
+Check(RankingClassFilterService.GetChangeVersion() == version, "Unchanged selections do not trigger needless reloads");
+var snapshot = RankingClassFilterService.GetEnabledClasses();
+RankingClassFilterService.SetEnabled(allClasses[0], false);
+Check(snapshot.Count == 1 && RankingClassFilterService.GetEnabledClasses().Count == 0, "Background readers receive an independent class snapshot");
+Check(ResultsFilterSettings.DefaultGender == GenderFilterMode.All && ResultsFilterSettings.Discipline == CompetitionDisciplineE.Alla,
+    "First launch defaults to H/D and all disciplines");
+var savedClasses = Preferences.Get("ranking_enabled_age_classes.v1", "missing");
+Preferences.Set("results_gender_filter.v1", "Female");
+foreach (var discipline in Enum.GetValues<CompetitionDisciplineE>())
+{
+    ResultsFilterSettings.Discipline = discipline;
+    Check(ResultsFilterSettings.Discipline == discipline && ResultsFilterSettings.DefaultGender == GenderFilterMode.All,
+        $"Discipline {discipline} persists while new gender filters default to H/D despite a previous saved gender");
+}
+Check(Preferences.Get("ranking_enabled_age_classes.v1", "missing") == savedClasses,
+    "Saving result filters preserves an explicitly empty class selection");
+Preferences.Set("results_gender_filter.v1", "999");
+Preferences.Set("results_discipline_filter.v1", "outdated-value");
+Check(ResultsFilterSettings.DefaultGender == GenderFilterMode.All && ResultsFilterSettings.Discipline == CompetitionDisciplineE.Alla,
+    "Invalid saved filters safely fall back to H/D and all disciplines");
+Console.WriteLine("All navigation, class and saved filter checks passed.");
+
+// These stand-ins exercise the production coordinator and policy; Android back is tested on an emulator.
+public class Page { public BackButtonBehavior? BackBehavior { get; set; } }
+public sealed class MainPage : Page { }
+public sealed class BackButtonBehavior { public Command? Command { get; set; } }
+public sealed class Command(Action execute) { public void Execute() => execute(); }
+public static class MainThread { public static Task InvokeOnMainThreadAsync(Func<Task> work) => work(); }
+public sealed class NavigationState { public string Location { get; set; } = "//MainPage"; }
+public sealed class FakeNavigation
+{
+    public List<Page> NavigationStack { get; } = [new MainPage()];
+    public List<Page> ModalStack { get; } = [];
+    public Task<Page> PopModalAsync(bool animate = true)
+    {
+        var page = ModalStack[^1];
+        ModalStack.RemoveAt(ModalStack.Count - 1);
+        return Task.FromResult(page);
+    }
+}
+public sealed class Shell : Page
+{
+    public static Shell Current { get; set; } = null!;
+    public FakeNavigation Navigation { get; } = new();
+    public Page CurrentPage => Navigation.NavigationStack[^1];
+    public NavigationState CurrentState { get; } = new();
+    public bool FlyoutIsPresented { get; set; }
+    public Func<string, Task>? BeforeNavigate { get; set; }
+    public List<string> Routes { get; } = [];
+    public int AlertCount { get; private set; }
+    public async Task GoToAsync(string route)
+    {
+        if (BeforeNavigate != null) await BeforeNavigate(route);
+        Routes.Add(route);
+        CurrentState.Location = route;
+        if (route.StartsWith("//"))
+        {
+            Navigation.NavigationStack.Clear();
+            Navigation.NavigationStack.Add(route == "//MainPage" ? new MainPage() : new Page());
+        }
+        else if (route == "..")
+        {
+            if (Navigation.NavigationStack.Count > 1) Navigation.NavigationStack.RemoveAt(Navigation.NavigationStack.Count - 1);
+        }
+        else Navigation.NavigationStack.Add(new Page());
+    }
+    public Task DisplayAlert(string title, string message, string cancel) { AlertCount++; return Task.CompletedTask; }
+    public static void SetBackButtonBehavior(Page page, BackButtonBehavior? behavior) => page.BackBehavior = behavior;
+}
+public static class AppDiagnostics
+{
+    public static int Errors;
+    public static void Log(Exception error, string context) => Errors++;
+    public static void RecordNavigation(string message) { }
+}
+public static class Preferences
+{
+    static readonly Dictionary<string, string> Values = [];
+    public static bool ContainsKey(string key) => Values.ContainsKey(key);
+    public static string Get(string key, string fallback) => Values.GetValueOrDefault(key, fallback);
+    public static void Set(string key, string value) => Values[key] = value;
+}
+public sealed class TestPreferenceStore : IPreferenceStore
+{
+    public string Get(string key, string fallback) => Preferences.Get(key, fallback);
+    public bool ContainsKey(string key) => Preferences.ContainsKey(key);
+    public void Set(string key, string value) => Preferences.Set(key, value);
+}

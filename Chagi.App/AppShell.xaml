@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="ITF_Taekwondo_Gradering.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ITF_Taekwondo_Gradering"
+    Title="ITF_Taekwondo_Gradering">
+
+    <ShellContent
+        Title="Home"
+        ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage" />
+
+    <ShellContent
+        Title="Fighters"
+        ContentTemplate="{DataTemplate local:CompetitorsPage}"
+        Route="competitors" />
+
+    <ShellContent
+        Title="Tävlingar"
+        ContentTemplate="{DataTemplate local:CompetitionsPage}"
+        Route="competitions" />
+
+    <ShellContent
+        Title="Klubbar"
+        ContentTemplate="{DataTemplate local:ClubsPage}"
+        Route="clubs" />
+
+    <ShellContent
+        Title="Kalender"
+        ContentTemplate="{DataTemplate local:CalendarPage}"
+        Route="calendar" />
+
+    <ShellContent
+        Title="Quiz"
+        ContentTemplate="{DataTemplate local:QuizPage}"
+        Route="quiz" />
+
+    <ShellContent
+        Title="About"
+        ContentTemplate="{DataTemplate local:InformationPage}"
+        Route="information" />
+
+    <FlyoutItem Title="Inställningar">
+        <ShellContent
+            Title="Inställningar"
+            ContentTemplate="{DataTemplate local:SettingsPage}"
+            Route="settings" />
+    </FlyoutItem>
+
+</Shell>

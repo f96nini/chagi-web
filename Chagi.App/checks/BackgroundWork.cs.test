@@ -1,0 +1,173 @@
+using System.Collections.Concurrent;
+using ITF_Taekwondo_Gradering;
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.Models.Ranking;
+
+var context = new UiContext();
+SynchronizationContext.SetSynchronizationContext(context);
+MainThread.Context = context;
+MainThread.ThreadId = Environment.CurrentManagedThreadId;
+var test = RunChecks();
+while (!test.IsCompleted) context.Pump();
+test.GetAwaiter().GetResult();
+Console.WriteLine("All background work checks passed.");
+
+static void Check(bool condition, string message)
+{
+    if (!condition) throw new Exception(message);
+    Console.WriteLine("PASS: " + message);
+}
+
+static async Task RunChecks()
+{
+    var original = new View();
+    var page = new ContentPage { Content = original };
+    var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var work = PageWorkService.RunBackgroundAsync(page, async () =>
+    {
+        Check(Environment.CurrentManagedThreadId != MainThread.ThreadId, "CPU work runs outside UI thread");
+        entered.SetResult();
+        await finish.Task;
+        return 42;
+    });
+    await entered.Task;
+    var root = (Grid)page.Content!;
+    var overlay = (Grid)root.Children[1];
+    var spinner = (ActivityIndicator)((VerticalStackLayout)overlay.Children[0]).Children[0];
+    Check(ReferenceEquals(root.Children[0], original), "Existing content preserved");
+    Check(overlay.IsVisible && spinner.IsRunning, "Progress visible before work starts");
+    await PageWorkService.RunAsync(page, () => Task.CompletedTask);
+    Check(overlay.IsVisible && spinner.IsRunning, "Overlapping completion keeps progress visible");
+    var expectedError = new InvalidOperationException("expected");
+    try { await PageWorkService.RunAsync(page, () => throw expectedError); }
+    catch (InvalidOperationException error) { Check(ReferenceEquals(error, expectedError), "Failures propagate to caller"); }
+    Check(overlay.IsVisible, "Overlapping failure does not hide active work");
+    finish.SetResult();
+    Check(await work == 42, "Background result returned");
+    Check(Environment.CurrentManagedThreadId == MainThread.ThreadId, "UI continuation stays on UI thread");
+    Check(!overlay.IsVisible && !spinner.IsRunning, "Last completion stops progress");
+    try { await PageWorkService.RunAsync(page, () => Task.FromCanceled(new CancellationToken(true))); }
+    catch (OperationCanceledException) { }
+    Check(!overlay.IsVisible && !spinner.IsRunning, "Cancellation cleans up progress");
+    await Task.Run(() => PageWorkService.RunAsync(page, () =>
+    {
+        Check(Environment.CurrentManagedThreadId == MainThread.ThreadId, "Worker callers dispatch UI workflow safely");
+        return Task.CompletedTask;
+    }));
+    Check(ReferenceEquals(root, page.Content), "Repeated work reuses a single overlay");
+
+    var leftPageWork = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    using var pageCancellation = new CancellationTokenSource();
+    var pending = PageWorkService.RunBackgroundAsync(page, async () => { await leftPageWork.Task; return 1; },
+        cancellationToken: pageCancellation.Token);
+    await Task.Delay(50);
+    page.Disappear();
+    pageCancellation.Cancel();
+    try { await pending; }
+    catch (OperationCanceledException) { }
+    Check(!overlay.IsVisible && !spinner.IsRunning, "Leaving a page immediately stops its progress UI");
+    page.Appear();
+    await PageWorkService.RunAsync(page, () => Task.CompletedTask);
+    leftPageWork.SetResult();
+    Check(!overlay.IsVisible && !spinner.IsRunning, "Cancelled work does not leave an overlay stuck on re-entry");
+
+    // Dependencies complete synchronously, reproducing the cached-data UI blocking bug.
+    var sections = await HeadToHeadService.GetAsync(new Competitor { FirstName = "Test" });
+    Check(CompetitionMatchService.CallingThread != MainThread.ThreadId, "Cached match workflow starts on worker");
+    Check(CompetitorRepository.CallingThread != MainThread.ThreadId, "Cached repository continuation stays on worker");
+    Check(sections.Count == 4 && sections.All(s => s.Opponents.Count == 0), "Head-to-head output preserved");
+}
+
+sealed class UiContext : SynchronizationContext
+{
+    readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> queue = new();
+    public override void Post(SendOrPostCallback callback, object? state) => queue.Add((callback, state));
+    public void Pump() { if (queue.TryTake(out var item, 1000)) item.Callback(item.State); }
+}
+
+// UI stand-ins exercise scheduling and overlay lifetime; native rendering needs a device.
+public static class MainThread
+{
+    public static SynchronizationContext Context = null!;
+    public static int ThreadId;
+    public static Task InvokeOnMainThreadAsync(Func<Task> action)
+    {
+        if (Environment.CurrentManagedThreadId == ThreadId) return action();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Context.Post(async _ =>
+        {
+            try { await action(); completion.SetResult(); }
+            catch (Exception error) { completion.SetException(error); }
+        }, null);
+        return completion.Task;
+    }
+}
+public class View
+{
+    public View() { if (Environment.CurrentManagedThreadId != MainThread.ThreadId) throw new Exception("UI constructed on worker"); }
+    public bool IsVisible { get; set; } = true;
+    public int ZIndex { get; set; }
+    public LayoutOptions HorizontalOptions { get; set; }
+    public LayoutOptions VerticalOptions { get; set; }
+}
+public class ContentPage
+{
+    public View? Content { get; set; }
+    public event EventHandler? Appearing;
+    public event EventHandler? Disappearing;
+    public void Appear() => Appearing?.Invoke(this, EventArgs.Empty);
+    public void Disappear() => Disappearing?.Invoke(this, EventArgs.Empty);
+}
+public class Grid : View
+{
+    public Color? BackgroundColor { get; set; }
+    public List<View> Children { get; } = [];
+    public void Add(View view) => Children.Add(view);
+}
+public class VerticalStackLayout : View
+{
+    public int Spacing { get; set; }
+    public int Padding { get; set; }
+    public List<View> Children { get; } = [];
+}
+public class ActivityIndicator : View
+{
+    public bool IsRunning { get; set; }
+    public int WidthRequest { get; set; }
+    public int HeightRequest { get; set; }
+    public Color? Color { get; set; }
+}
+public class Label : View
+{
+    public string? Text { get; set; }
+    public Color? TextColor { get; set; }
+    public TextAlignment HorizontalTextAlignment { get; set; }
+}
+public enum LayoutOptions { Center }
+public enum TextAlignment { Center }
+public class Color { public static Color FromRgba(int r, int g, int b, int a) => new(); }
+public static class Colors { public static Color White { get; } = new(); }
+
+
+namespace ITF_Taekwondo_Gradering.Logic
+{
+    public static class CompetitorRepository
+    {
+        public static int CallingThread;
+        public static Task<List<Competitor>> GetAllAsync()
+        {
+            CallingThread = Environment.CurrentManagedThreadId;
+            return Task.FromResult(new List<Competitor>());
+        }
+    }
+    public static class CompetitionMatchService
+    {
+        public static int CallingThread;
+        public static Task<IReadOnlyList<CompetitionMatchHistory>> GetHistoryAsync()
+        {
+            CallingThread = Environment.CurrentManagedThreadId;
+            return Task.FromResult<IReadOnlyList<CompetitionMatchHistory>>([]);
+        }
+    }
+}

@@ -1,0 +1,44 @@
+@page "/"
+@inherits ResultsPageBase
+@inject NavigationManager Navigation
+<PageTitle>Chagi · Svensk taekwondo, samlad</PageTitle>
+
+<section class="hero">
+    <div class="hero-copy"><div class="eyebrow"><span class="tiny-line"></span> FRÅN FÖRSTA START TILL PRISPALLEN</div>
+        <h1>Varje match.<br />Varje <em>framsteg.</em></h1>
+        <p>Tävlingarna, utövarna och resultaten.<br class="desktop-break" /> Följ svensk ITF taekwondo på ett och samma ställe.</p>
+        <form class="hero-search" @onsubmit="Search" @onsubmit:preventDefault>
+            <label class="sr-only" for="home-search">Sök fighter eller klubb</label><span aria-hidden="true">⌕</span>
+            <input id="home-search" type="search" placeholder="Sök fighter eller klubb…" @bind="query" />
+            <button type="submit" aria-label="Sök fighters">→</button>
+        </form>
+        <div class="hero-links"><a href="tavlingar">Utforska tävlingar <span aria-hidden="true">↗</span></a><span>eller</span><a href="ranking">Se rankingen <span aria-hidden="true">↗</span></a></div>
+    </div>
+    <div class="hero-visual" aria-hidden="true"><div class="visual-top"><span>태권도</span><span>DISCIPLIN. RESPEKT. UTVECKLING.</span></div>
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div>
+        <div class="hero-symbol">태권도<span>TAEKWONDO</span></div><span class="visual-cross cross-one">+</span><span class="visual-cross cross-two">+</span>
+        <div class="visual-bottom"><span>THE NEXT<br /><strong>STEP IS YOURS.</strong></span><span class="visual-arrow">↗</span></div>
+    </div>
+</section>
+
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Data != null)
+{
+    <section class="stats-strip" aria-label="Statistik för de senaste publicerade tävlingarna">
+        <div><strong>@Data.Competitions.Count.ToString("00")</strong><span>Senaste tävlingarna</span></div>
+        <div><strong>@Data.Fighters.Count.ToString("N0")</strong><span>Fighters i dessa resultat</span></div>
+        <div><strong>@Data.Fighters.Sum(f => f.Results.Count(r => r.Placement is >= 1 and <= 3)).ToString("N0")</strong><span>Medaljer i dessa tävlingar</span></div>
+        <div class="stat-note"><span class="status-dot"></span><span>Publicerade resultat<br /><strong>@(Data.IsStale ? "Sparad version" : "Hämtade från Chagi")</strong></span></div>
+    </section>
+    <section class="section-block"><div class="section-heading"><div><span class="eyebrow">TILLBAKA PÅ MATTAN</span><h2>Senaste tävlingarna<span class="accent">.</span></h2></div><a class="text-link" href="tavlingar">Alla tävlingar <span aria-hidden="true">↗</span></a></div>
+        @if (Data.Competitions.Count == 0) { <p class="empty-state">Det finns inga publicerade tävlingsresultat ännu.</p> }
+        else { <div class="competition-grid">@foreach (var item in Data.Competitions.Take(3)) { <CompetitionCard Item="item" /> }</div> }
+    </section>
+    <section class="explore-banner"><div><span class="eyebrow">UTVECKLING ÖVER TID</span><h2>Följ vägen till nästa medalj.</h2><p>Se tävlingshistorik, upptäck fighters och jämför resultat inom varje klass.</p></div><a class="button" href="ranking">Till rankingen <span aria-hidden="true">↗</span></a></section>
+    <p class="source-note">Senaste resultaten · dataversion @Data.Version · <a href="om">Så räknas resultat och poäng</a></p>
+}
+@code {
+    protected override bool LatestOnly => true;
+    string query = "";
+    void Search() => Navigation.NavigateTo("fighters?q=" + Uri.EscapeDataString(query.Trim()));
+}

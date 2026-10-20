@@ -1,0 +1,15 @@
+@if (Total > PageSize)
+{
+    <nav class="pagination" aria-label="Sidindelning">
+        <span>@(Page * PageSize + 1)–@Math.Min((Page + 1) * PageSize, Total) av @Total</span>
+        <div><button @onclick="() => Changed.InvokeAsync(Page - 1)" disabled="@(Page == 0)" aria-label="Föregående sida">←</button>
+        <span>Sida @(Page + 1) av @((Total + PageSize - 1) / PageSize)</span>
+        <button @onclick="() => Changed.InvokeAsync(Page + 1)" disabled="@((Page + 1) * PageSize >= Total)" aria-label="Nästa sida">→</button></div>
+    </nav>
+}
+@code {
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Page { get; set; }
+    [Parameter] public int PageSize { get; set; } = 30;
+    [Parameter] public EventCallback<int> Changed { get; set; }
+}

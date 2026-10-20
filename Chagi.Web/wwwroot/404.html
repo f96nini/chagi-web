@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Chagi · Öppnar sidan</title></head>
+<body><p>Öppnar Chagi… <a id="home" href="/">Till startsidan</a></p>
+<script>
+    const base = '__BASE_PATH__';
+    document.getElementById('home').href = base;
+    const route = location.pathname + location.search + location.hash;
+    location.replace(base + '?__chagi_route=' + encodeURIComponent(route));
+</script></body></html>

@@ -1,0 +1,3 @@
+@inject PublicImages Images
+<span class="club-label"><Avatar Name="@Name" Url="@Images.Club(ClubCatalogService.ResolveClub(Name)?.Id ?? Name)" Alt="@($"Klubblogotyp för {Name}")" Size="small" /><span>@Name</span></span>
+@code { [Parameter] public string Name { get; set; } = ""; }

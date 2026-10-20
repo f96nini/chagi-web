@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ITF_Taekwondo_Gradering.InformationPage"
+             Title="About">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+            <Label Text="Datainformation."
+                   FontAttributes="Bold"
+                   FontSize="18" />
+
+            <Label x:Name="DataInformationLabel"
+                   LineBreakMode="WordWrap" />
+
+            <Label Text="Synkning."
+                   FontAttributes="Bold"
+                   FontSize="18" />
+
+            <Label Text="Appen söker automatiskt efter nya resultat vid start och återgång, högst en gång var 15:e minut medan appen används. Endast ändrade filer hämtas. Här kan du se senaste synkstatus och starta en synkning manuellt."
+                   LineBreakMode="WordWrap" />
+
+            <VerticalStackLayout Spacing="6">
+                <Label x:Name="LastSyncAttemptLabel"
+                       LineBreakMode="WordWrap" />
+                <Label x:Name="LastSyncSuccessLabel"
+                       LineBreakMode="WordWrap" />
+                <Label x:Name="LastSyncStatusLabel"
+                       LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+
+            <Button x:Name="SyncNowButton"
+                    Text="Synka nu"
+                    Clicked="OnSyncNowClicked" />
+
+            <Label Text="Poängberäkning."
+                   FontAttributes="Bold"
+                   FontSize="18" />
+
+            <Label Text="Medaljpoäng beräknas enligt 5-3-1 systemet där:
+Guld = 5 poäng
+Silver = 3 poäng
+Brons = 1 poäng"
+                   LineBreakMode="WordWrap" />
+
+            <Button x:Name="VersionHistoryButton"
+                    Text="Visa versionshistorik"
+                    Clicked="OnVersionHistoryClicked" />
+
+            <Border x:Name="VersionHistoryContent"
+                    IsVisible="False"
+                    Stroke="{AppThemeBinding Light=#D9E2EC, Dark=#3E4C59}"
+                    StrokeThickness="1"
+                    BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1F2933}"
+                    StrokeShape="RoundRectangle 12"
+                    Padding="12">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="2.1"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Tydligare medalj- och poängstatistik, rättade klubbuppgifter och svensk namnsortering."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Förbättrad VS-historik med gruppering per disciplin eller motståndare."
+                           LineBreakMode="WordWrap" />
+
+                    <Label Text="2.0"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Nya klubbsidor. Förbättrat Quiz och enhetligare layout."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Årsindelning och deltagarantal i tävlingslistan när underlag finns."
+                           LineBreakMode="WordWrap" />
+
+                    <Label Text="1.4"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Enhetligare bakåtnavigering. Androids bakåtknapp tar dig till huvudsidan; nästa tryck avslutar appen. Tydligare bakåtpilar och färre dubbla bakåtknappar."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Stabilare tävlings- och matchvyer vid snabb navigering."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Herr/Dam är standardfilter. Val av kön, klasser och disciplin samt favoriter sparas mellan appstarter."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Automatisk och resurssnål datasynkning medan appen används. Endast ändrade filer hämtas, öppna resultatsidor uppdateras och sparade data finns kvar vid avbrott."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Förbättrad motståndarhistorik i VS, enhetligt klubbnamn GBG Kampsport även historiskt och mer träffsäker bältesklassificering. Medaljtoppen visar åldersklass. Övriga deltagare i större grupper kan fällas ut i tävlingsresultaten."
+                           LineBreakMode="WordWrap" />
+
+                    <Label Text="1.3"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Medaljtoppen varje tävling"
+                           LineBreakMode="WordWrap" />
+
+                    <Label Text="1.2"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Detaljerade matcher med poäng, flaggor och extramatcher för tävlingar där matchdata finns. Motståndarhistorik på tävlandes profilsidor. Alla kända deltagare visas, även utan medalj. Kalender med ITF TKD-händelser och sparad kalender för offlinevisning. Uppdaterade tävlingsvyer och listor."
+                           LineBreakMode="WordWrap" />
+
+                    <Label Text="1.1"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Fixad Windows-krasch vid laddning av Fighters."
+                           LineBreakMode="WordWrap" />
+
+                    <Label Text="1.0.0"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="First Release"
+                           LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

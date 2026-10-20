@@ -1,0 +1,47 @@
+@page "/ranking"
+@inherits ResultsPageBase
+<PageTitle>Ranking · Chagi</PageTitle>
+<div class="page-intro"><span class="eyebrow">PLACERINGAR SOM BERÄTTAR MER</span><h1>Ranking<span class="accent">.</span></h1><p>Medaljpoäng per åldersklass och bältesgrupp. Samma beräkning som i Chagi-appen.</p></div>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Data != null)
+{
+    <div class="ranking-legend"><span><i class="medal gold" aria-hidden="true"></i> Guld <strong>5 p</strong></span><span><i class="medal silver" aria-hidden="true"></i> Silver <strong>3 p</strong></span><span><i class="medal bronze" aria-hidden="true"></i> Brons <strong>1 p</strong></span><a href="om">Så fungerar rankingen ↗</a></div>
+    <div class="filter-bar ranking-filters"><label>Säsong<select @bind="year"><option value="0">Alla år</option>@foreach (var y in Data.Fighters.SelectMany(f => f.Results).Select(r => r.CompetitionDate.Year).Distinct().OrderDescending()) { <option value="@y">@y</option> }</select></label>
+        <label>Kön<select @bind="gender"><option value="all">Herrar &amp; damer</option><option value="male">Herrar / pojkar</option><option value="female">Damer / flickor</option></select></label>
+        <label>Gren<select @bind="discipline">@foreach(var d in Enum.GetValues<CompetitionDisciplineE>()) { <option value="@d">@d</option> }</select></label>
+        <label>Åldersklass<select @bind="age"><option value="">Alla klasser</option>@foreach(var a in Enum.GetValues<RankingAgeClassE>()) { <option value="@a">@RankingClassFilterService.ToDisplayName(a)</option> }</select></label>
+        <label>Klubb<select @bind="club"><option value="">Alla klubbar</option>@foreach(var c in Data.Fighters.Select(f => f.Team).Distinct().Order(SwedishNameComparer.Instance)) { <option>@c</option> }</select></label>
+    </div>
+    <p class="filter-explanation">Aktuell åldersklass och senast registrerat bälte används även för tidigare säsonger. Vald klubb avgränsar jämförelsen.</p>
+    @if (Groups.Count == 0) { <div class="empty-state"><h2>Inga rankingresultat för dessa filter</h2><p>Välj en annan säsong, klass eller gren.</p><button class="text-button" @onclick="Reset">Visa alla resultat ↻</button></div> }
+    @foreach (var group in Groups)
+    {
+        <section class="ranking-section"><div class="section-heading compact"><h2>@group.Section.Title</h2><span class="category-chip">@group.Label</span></div>
+            <div class="table-scroll"><table><caption class="sr-only">@group.Label, @group.Section.Title</caption><thead><tr><th scope="col">Plats</th><th scope="col">Fighter</th><th scope="col">Klubb</th><th scope="col">Medaljer</th><th scope="col" class="number">Poäng</th></tr></thead><tbody>
+            @foreach (var entry in group.Section.Entries)
+            {
+                <tr><td class="rank-number">@entry.PositionLabel</td><td><a class="name-link" href="@($"fighters/{ResultLinks.FighterId(entry.Competitor)}")">@entry.FullName</a></td><td><ClubBadge Name="@entry.Team" /></td><td><Medals Gold="entry.GoldCount" Silver="entry.SilverCount" Bronze="entry.BronzeCount" /></td><td class="number points">@entry.Score</td></tr>
+            }
+            </tbody></table></div>
+        </section>
+    }
+}
+@code {
+    int year; string gender = "all", age = "", club = ""; CompetitionDisciplineE discipline;
+    List<(string Label, RankingSection Section)> Groups {
+        get {
+            if (Data == null) return [];
+            var fighters = Data.Fighters.Where(f => club == "" || f.Team == club).Select(f => new Competitor {
+                Id = f.Id, FirstName = f.FirstName, LastName = f.LastName, Team = f.Team, IsMale = f.IsMale,
+                CurrentAgeClass = f.CurrentAgeClass, LatestBelt = f.LatestBelt,
+                Results = f.Results.Where(r => year == 0 || r.CompetitionDate.Year == year).ToList()
+            }).ToList();
+            var groups = new List<(string, RankingSection)>();
+            foreach (var male in new[] { true, false }.Where(m => gender == "all" || (gender == "male") == m))
+                foreach (var section in RankingService.BuildAllSections(fighters, male, discipline, CompetitorSortE.TotalPoints).Where(s => age == "" || s.AgeClass.ToString() == age))
+                    groups.Add((male ? "Herrar / pojkar" : "Damer / flickor", section));
+            return groups;
+        }
+    }
+    void Reset() { year = 0; gender = "all"; age = ""; club = ""; discipline = CompetitionDisciplineE.Alla; }
+}

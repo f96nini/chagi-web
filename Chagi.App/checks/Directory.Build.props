@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'NavigationChecks'">$(MSBuildThisFileDirectory)../../.navigation-checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'NavigationChecks'">$(MSBuildThisFileDirectory)../../.navigation-checks/bin/</BaseOutputPath>
+    <!-- Keep generated C# outside the MAUI project's recursive source glob. -->
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'BackgroundWorkChecks'">$(MSBuildThisFileDirectory)../../.background-checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'BackgroundWorkChecks'">$(MSBuildThisFileDirectory)../../.background-checks/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'MedalLeaderboardChecks'">$(MSBuildThisFileDirectory)../../.medal-leaderboard-checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'MedalLeaderboardChecks'">$(MSBuildThisFileDirectory)../../.medal-leaderboard-checks/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'HeadToHeadChecks'">$(MSBuildThisFileDirectory)../../.head-to-head-checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'HeadToHeadChecks'">$(MSBuildThisFileDirectory)../../.head-to-head-checks/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'BeltClassificationChecks'">$(MSBuildThisFileDirectory)../../.belt-classification-checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'BeltClassificationChecks'">$(MSBuildThisFileDirectory)../../.belt-classification-checks/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'DataSyncChecks'">$(MSBuildThisFileDirectory)../../.data-sync-checks/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'DataSyncChecks'">$(MSBuildThisFileDirectory)../../.data-sync-checks/bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

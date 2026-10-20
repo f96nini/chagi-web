@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:ITF_Taekwondo_Gradering"
+             x:Class="ITF_Taekwondo_Gradering.MainPage">
+    <local:AppBackgroundView>
+        <ScrollView x:Name="HomeScroll">
+            <Grid Padding="16,20"
+                  RowSpacing="14"
+                  MinimumHeightRequest="{Binding Source={x:Reference HomeScroll}, Path=Height}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0"
+                      ColumnSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="StudyButton"
+                            Grid.Column="0"
+                            Text="Studera"
+                            Clicked="OnStudyClicked"
+                            MinimumHeightRequest="70" LineBreakMode="WordWrap"/>
+                    <Button x:Name="QuizButton"
+                            Grid.Column="1"
+                            Text="Quiz"
+                            Clicked="OnQuizClicked"
+                            MinimumHeightRequest="70" LineBreakMode="WordWrap"/>
+                </Grid>
+
+                <VerticalStackLayout Grid.Row="2"
+                                     Spacing="10"
+                                     HorizontalOptions="Start">
+                    <Button x:Name="CompetitorsButton"
+                            Text="Fighters"
+                            Clicked="OnCompetitorsClicked"
+                            MinimumHeightRequest="70" MinimumWidthRequest="140" LineBreakMode="WordWrap"/>
+
+                    <Button x:Name="CompetitionsButton"
+                            Text="Tävlingar"
+                            Clicked="OnCompetitionsClicked"
+                            MinimumHeightRequest="70" MinimumWidthRequest="140" LineBreakMode="WordWrap"/>
+
+                    <Button x:Name="ClubsButton"
+                            Text="Klubbar"
+                            Clicked="OnClubsClicked"
+                            MinimumHeightRequest="70" MinimumWidthRequest="140" LineBreakMode="WordWrap"/>
+
+                    <Button x:Name="CalendarButton"
+                            Text="Kalender"
+                            Clicked="OnCalendarClicked"
+                            MinimumHeightRequest="70" MinimumWidthRequest="140" LineBreakMode="WordWrap"/>
+                </VerticalStackLayout>
+                <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="8" HorizontalOptions="End">
+                    <local:BeltView x:Name="SelectedBeltView" WidthRequest="60" VerticalOptions="Center" />
+                    <Label x:Name="SelectedBeltLabel" Grid.Column="1" VerticalOptions="Center" TextColor="White" FontAttributes="Bold"/>
+                </Grid>
+            </Grid>
+        </ScrollView>
+    </local:AppBackgroundView>
+
+</ContentPage>

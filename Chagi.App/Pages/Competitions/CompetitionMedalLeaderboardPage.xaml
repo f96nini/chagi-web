@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:logic="clr-namespace:ITF_Taekwondo_Gradering.Logic;assembly=Chagi.Core"
+             xmlns:local="clr-namespace:ITF_Taekwondo_Gradering"
+             x:Class="ITF_Taekwondo_Gradering.CompetitionMedalLeaderboardPage"
+             Title="Medaljtoppen">
+    <local:AppBackgroundView>
+        <CollectionView x:Name="LeaderboardView" BackgroundColor="Transparent"
+                        IsGrouped="True"
+                        SelectionMode="None"
+                        ItemSizingStrategy="MeasureAllItems">
+            <CollectionView.Header>
+                <VerticalStackLayout Padding="16" Spacing="6">
+                    <Label TextColor="White" Text="Medaljtoppen" FontSize="22" FontAttributes="Bold" />
+                    <Label TextColor="White" x:Name="ClubLabel" FontSize="20" FontAttributes="Bold" IsVisible="False" />
+                    <Label TextColor="White" x:Name="CompetitionLabel" FontSize="16" FontAttributes="Bold" />
+                    <Label TextColor="White" x:Name="CityLabel" FontSize="14" />
+                    <Label TextColor="White" Text="Samma poäng ger delad plats. Namnen sorteras på efternamn."
+                           FontSize="13" />
+                    <Label TextColor="White" x:Name="EmptyStateLabel" Text="Inga deltagare finns registrerade för tävlingen."
+                           IsVisible="False" Margin="0,12,0,0" />
+                </VerticalStackLayout>
+            </CollectionView.Header>
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="logic:CompetitionMedalLeaderboardGroup">
+                    <VerticalStackLayout Padding="16,16,16,8" Spacing="6">
+                        <Image Source="{Binding TrophyImageSource}" IsVisible="{Binding HasTrophy}"
+                               HeightRequest="64" WidthRequest="64" HorizontalOptions="Center"
+                               SemanticProperties.Description="{Binding Title}" />
+                        <Label TextColor="White" Text="{Binding Title}" IsVisible="{Binding HasTitle}"
+                               FontSize="18" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                        <Label TextColor="White" Text="{Binding PointsLabel}" FontSize="15" FontAttributes="Bold"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="logic:CompetitionMedalLeaderboardEntry">
+                    <Border Margin="16,0,16,6" Padding="12"
+                            Stroke="{AppThemeBinding Light=#D9E2EC, Dark=#3E4C59}"
+                            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1F2933}"
+                            StrokeShape="RoundRectangle 8"
+                            SemanticProperties.Description="{Binding CompetitorName}"
+                            SemanticProperties.Hint="Visa deltagarens detaljer">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnParticipantTapped" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="3">
+                                <Label Text="{Binding CompetitorName}" FontAttributes="Bold" />
+                                <Label Text="{Binding Team}" FontSize="13"
+                                       TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+                                <Label Text="{Binding AgeClassLabel}" FontSize="13"
+                                       TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding PointsLabel}"
+                                   VerticalOptions="Center" FontAttributes="Bold" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.Footer>
+                <BoxView HeightRequest="16" Color="Transparent" />
+            </CollectionView.Footer>
+        </CollectionView>
+    </local:AppBackgroundView>
+</ContentPage>

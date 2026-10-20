@@ -1,0 +1,19 @@
+@if (Busy)
+{
+    <div class="data-state loading" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><div><strong>Hämtar resultaten</strong><p>Vi läser in publicerade tävlingsresultat.</p></div></div>
+}
+else if (Error != null)
+{
+    <div class="data-state error" role="alert"><div><strong>Det gick inte att hämta resultaten</strong><p>@Error</p></div><button class="button button-small" @onclick="Retry">Försök igen ↻</button></div>
+}
+else if (Data?.Notice != null)
+{
+    <div class="data-state notice" role="status"><p>@Data.Notice</p><button class="text-button" @onclick="Retry">Försök igen ↻</button></div>
+}
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public ResultsData? Data { get; set; }
+    [Parameter] public EventCallback Retry { get; set; }
+}

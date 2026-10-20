@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:ITF_Taekwondo_Gradering"
+             x:Class="ITF_Taekwondo_Gradering.SettingsPage"
+             Title="Inställningar">
+
+    <local:AppBackgroundView>
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="8">
+            <Label Text="Välj vilken grad du skall gradera till (så att du får rätt studiematerial och Quiz-frågor):" FontAttributes="Bold" TextColor="White" />
+
+            <Grid ColumnDefinitions="Auto,60" RowSpacing="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- 10 Kup-1 -->
+                <RadioButton Grid.Row="0" Grid.Column="0" x:Name="Radio10Kup1" Content="10 Kup-1" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="0" Grid.Column="1" BeltColor="White" Margin="10,0,0,0"/>
+
+                <!-- 10 Kup-2 -->
+                <RadioButton Grid.Row="1" Grid.Column="0" x:Name="Radio10Kup2" Content="10 Kup-2" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="1" Grid.Column="1" BeltColor="White" Stripe1Color="Black"  Margin="10,0,0,0"/>
+
+                <!-- 9 Kup-1 -->
+                <RadioButton Grid.Row="2" Grid.Column="0" x:Name="Radio9Kup1" Content="9 Kup-1" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="2" Grid.Column="1" BeltColor="White" Stripe1Color="Yellow"  Margin="10,0,0,0"/>
+
+                <!-- 9 Kup-2 -->
+                <RadioButton Grid.Row="3" Grid.Column="0" x:Name="Radio9Kup2" Content="9 Kup-2" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="3" Grid.Column="1" BeltColor="White" Stripe1Color="Black" Stripe2Color="Yellow"  Margin="10,0,0,0"/>
+
+                <!-- 8 Kup-1 -->
+                <RadioButton Grid.Row="4" Grid.Column="0" x:Name="Radio8Kup1" Content="8 Kup-1" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="4" Grid.Column="1" BeltColor="Yellow"  Margin="10,0,0,0"/>
+
+                <!-- 8 Kup-2 -->
+                <RadioButton Grid.Row="5" Grid.Column="0" x:Name="Radio8Kup2" Content="8 Kup-2" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="5" Grid.Column="1" BeltColor="Yellow" Stripe1Color="Black"  Margin="10,0,0,0"/>
+
+                <!-- 7 Kup-1 -->
+                <RadioButton Grid.Row="6" Grid.Column="0" x:Name="Radio7Kup1" Content="7 Kup-1" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="6" Grid.Column="1" BeltColor="Yellow" Stripe1Color="Green"  Margin="10,0,0,0"/>
+
+                <!-- 7 Kup-2 -->
+                <RadioButton Grid.Row="7" Grid.Column="0" x:Name="Radio7Kup2" Content="7 Kup-2" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="7" Grid.Column="1" BeltColor="Yellow" Stripe1Color="Black" Stripe2Color="Green" Margin="10,0,0,0"/>
+
+                <!-- 6 Kup-1 -->
+                <RadioButton Grid.Row="8" Grid.Column="0" x:Name="Radio6Kup1" Content="6 Kup-1" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="8" Grid.Column="1" BeltColor="Green" Margin="10,0,0,0"/>
+
+                <!-- 6 Kup-2 -->
+                <RadioButton Grid.Row="9" Grid.Column="0" x:Name="Radio6Kup2" Content="6 Kup-2" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="9" Grid.Column="1" BeltColor="Green" Stripe1Color="Black" Margin="10,0,0,0"/>
+
+                <!-- 5 Kup-1 -->
+                <RadioButton Grid.Row="10" Grid.Column="0" x:Name="Radio5Kup1" Content="5 Kup-1" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="10" Grid.Column="1" BeltColor="Green" Stripe1Color="Blue" Margin="10,0,0,0"/>
+
+                <!-- 5 Kup-2 -->
+                <RadioButton Grid.Row="11" Grid.Column="0" x:Name="Radio5Kup2" Content="5 Kup-2" GroupName="rankGroup" />
+                <local:BeltView Grid.Row="11" Grid.Column="1" BeltColor="Green" Stripe1Color="Black" Stripe2Color="Blue" Margin="10,0,0,0"/>
+            </Grid>
+
+            <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                <Label Text="Mörkt läge" VerticalOptions="Center" TextColor="White" />
+                <Switch x:Name="ThemeSwitch" Toggled="OnThemeToggled" />
+            </HorizontalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+    </local:AppBackgroundView>
+
+</ContentPage>

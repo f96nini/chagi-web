@@ -1,0 +1,7 @@
+<a class="competition-card" href="@($"tavlingar/{ResultLinks.CompetitionId(Item)}")">
+    <div class="card-top"><span class="date-chip">@Item.CompetitionDate.ToString("dd MMM yyyy", CultureInfo.GetCultureInfo("sv-SE"))</span><span class="card-arrow" aria-hidden="true">↗</span></div>
+    <div class="competition-art" aria-hidden="true"><span class="art-lines"></span><span class="art-number">@Item.CompetitionDate.ToString("yy")</span><span class="art-caption">ITF / TAEKWONDO</span></div>
+    <div class="competition-card-body"><h3>@Item.CompetitionName</h3><p><span aria-hidden="true">⌖</span> @(string.IsNullOrWhiteSpace(Item.CompetitionCity) ? "Plats ej angiven" : Item.CompetitionCity)</p>
+    <div class="card-meta"><span>@Item.Divisions.Count klasser</span><span>@(Item.ParticipantCount.HasValue ? $"{Item.ParticipantCount} deltagare" : "Publicerade placeringar")</span></div></div>
+</a>
+@code { [Parameter, EditorRequired] public CompetitionCatalogEntry Item { get; set; } = null!; }

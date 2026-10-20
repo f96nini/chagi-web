@@ -1,0 +1,34 @@
+@page "/tavlingar/{Id}"
+@inherits ResultsPageBase
+<PageTitle>@(Competition?.CompetitionName ?? "Tävlingsresultat") · Chagi</PageTitle>
+<a class="back-link" href="tavlingar">← Alla tävlingar</a>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Competition is { } competition)
+{
+    <div class="page-intro"><span class="eyebrow">@competition.CompetitionDate.ToString("dd MMMM yyyy") · @competition.CompetitionCity</span><h1>@competition.CompetitionName<span class="accent">.</span></h1><p>@competition.Divisions.Count klasser · @(competition.ParticipantCount.HasValue ? $"{competition.ParticipantCount} deltagare" : "Äldre resultat visar publicerade placeringar, inte en komplett deltagarlista.")</p></div>
+    <div class="filter-bar"><label class="search-field"><span class="sr-only">Sök klass, fighter eller klubb</span><span aria-hidden="true">⌕</span><input type="search" placeholder="Sök klass, fighter eller klubb…" @bind="search" @bind:event="oninput" /></label>
+        <label>Gren<select @bind="discipline">@foreach (var d in Enum.GetValues<CompetitionDisciplineE>()) { <option value="@d">@d</option> }</select></label>
+        <label>Åldersklass<select @bind="age"><option value="">Alla klasser</option>@foreach(var a in Enum.GetValues<RankingAgeClassE>()) { <option value="@a">@RankingClassFilterService.ToDisplayName(a)</option> }</select></label>
+    </div>
+    <div class="section-heading compact"><h2>Klassresultat</h2><span class="muted">@Divisions.Count klasser</span></div>
+    @if (Divisions.Count == 0) { <div class="empty-state"><h2>Inga resultat matchar filtren</h2><p>Prova en annan gren, åldersklass eller sökning.</p></div> }
+    @foreach (var division in Divisions)
+    {
+        <details class="division-card"><summary><span><span class="eyebrow">@division.Discipline</span><strong>@division.Division</strong></span><span class="division-count">@division.Results.Count registrerade <span aria-hidden="true">＋</span></span></summary>
+            <div class="table-scroll"><table><caption class="sr-only">Resultat i @division.Division</caption><thead><tr><th scope="col">Placering</th><th scope="col">Fighter</th><th scope="col">Klubb</th></tr></thead><tbody>
+            @foreach (var result in division.Results)
+            {
+                var fighter = Data!.Fighters.FirstOrDefault(f => f.Id == result.CompetitorId);
+                <tr><td><span class="placement placement-@result.Placement">@(result.Placement > 0 ? result.Placement.ToString() : "–")</span></td><td>@if (fighter != null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@result.CompetitorName</a> } else { @result.CompetitorName }</td><td>@result.Team</td></tr>
+            }
+            </tbody></table></div>
+        </details>
+    }
+}
+else if (!Busy && Data != null) { <div class="empty-state"><h1>Tävlingen finns inte</h1><p>Resultaten kan ha uppdaterats. Sök tävlingen i listan.</p></div> }
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    string search = "", age = ""; CompetitionDisciplineE discipline;
+    CompetitionCatalogEntry? Competition => Data?.Competitions.FirstOrDefault(c => ResultLinks.CompetitionId(c) == Id);
+    List<CompetitionDivisionEntry> Divisions => Competition?.Divisions.Where(d => (discipline == CompetitionDisciplineE.Alla || d.Discipline == discipline) && (age == "" || d.AgeClass?.ToString() == age) && (d.Division.Contains(search, StringComparison.OrdinalIgnoreCase) || d.Results.Any(r => r.CompetitorName.Contains(search, StringComparison.OrdinalIgnoreCase) || r.Team.Contains(search, StringComparison.OrdinalIgnoreCase)))).ToList() ?? [];
+}

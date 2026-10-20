@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:ITF_Taekwondo_Gradering.Models.Clubs;assembly=Chagi.Core"
+             xmlns:views="clr-namespace:ITF_Taekwondo_Gradering.Views"
+             xmlns:local="clr-namespace:ITF_Taekwondo_Gradering"
+             x:Class="ITF_Taekwondo_Gradering.ClubsPage"
+             Title="Klubbar">
+    <local:AppBackgroundView>
+    <Grid Padding="6"
+          RowDefinitions="Auto,Auto,*"
+          RowSpacing="10">
+
+        <HorizontalStackLayout Grid.Row="0"
+                               Spacing="8"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start">
+            <ActivityIndicator x:Name="BusyIndicator"
+                               Color="White"
+                               IsVisible="False"
+                               IsRunning="False"
+                               WidthRequest="24"
+                               HeightRequest="24" />
+            <Label x:Name="StatusLabel"
+                   TextColor="White"
+                   VerticalOptions="Center"
+                   Text="Laddar klubbar..." />
+        </HorizontalStackLayout>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" VerticalOptions="Center">
+            <Label Text="Sortera på:" TextColor="White"
+                   VerticalOptions="Center" />
+            <Picker x:Name="SortPicker"
+                    SemanticProperties.Description="Sortera klubbar"
+                    Grid.Column="1" TextColor="White"
+                    SelectedIndexChanged="OnSortPickerChanged" />
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <CollectionView x:Name="ClubsView"
+                            BackgroundColor="Transparent"
+                            SelectionMode="Single"
+                            SelectionChanged="OnClubSelected"
+                            ItemSizingStrategy="MeasureAllItems">
+                <CollectionView.EmptyView>
+                    <Label Text="Inga klubbar att visa."
+                           TextColor="White"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           Margin="24" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical"
+                                       ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ClubSummaryEntry">
+                        <views:ClubCardView Summary="{Binding .}" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Border x:Name="LoadingOverlay"
+                    IsVisible="False"
+                    BackgroundColor="{AppThemeBinding Light=#80FFFFFF, Dark=#80000000}"
+                    StrokeThickness="0"
+                    Padding="24"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="8">
+                    <ActivityIndicator x:Name="OverlayIndicator"
+                                       IsVisible="False"
+                                       IsRunning="False"
+                                       WidthRequest="32"
+                                       HeightRequest="32"
+                                       HorizontalOptions="Center" />
+                    <Label x:Name="OverlayLabel"
+                           Text="Laddar klubbar..."
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+    </local:AppBackgroundView>
+</ContentPage>

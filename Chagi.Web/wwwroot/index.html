@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Följ svensk ITF taekwondo med tävlingsresultat, fighters, tävlingshistorik och ranking i Chagi." />
+    <meta name="theme-color" content="#f7f7f2" />
+    <base href="/" />
+    <title>Chagi · Svensk taekwondo, samlad</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="stylesheet" href="css/app.css" />
+    <script>
+        // GitHub Pages sends deep links through 404.html. Restore before Blazor starts.
+        (() => {
+            const saved = new URLSearchParams(location.search).get('__chagi_route');
+            if (!saved) return;
+            const route = new URL(saved, location.origin);
+            const base = new URL(document.baseURI).pathname;
+            if (route.origin === location.origin && route.pathname.startsWith(base))
+                history.replaceState(null, '', route.pathname + route.search + route.hash);
+        })();
+    </script>
+</head>
+<body>
+    <div id="app"><div class="boot-screen" role="status"><strong>chagi<span>.</span></strong><p>Resultaten. Människorna. Framstegen.</p><span class="spinner" aria-hidden="true"></span><p>Laddar Chagi…</p></div></div>
+    <div id="blazor-error-ui" role="alert">Webbplatsen behöver laddas om. <a href="" class="reload">Ladda om sidan</a><button class="dismiss" aria-label="Stäng meddelandet">×</button></div>
+    <script src="js/cache.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>

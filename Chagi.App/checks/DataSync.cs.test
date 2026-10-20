@@ -1,0 +1,273 @@
+using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Channels;
+using ITF_Taekwondo_Gradering;
+using ITF_Taekwondo_Gradering.Logic;
+using ITF_Taekwondo_Gradering.WebConnection;
+
+// Keep refresh orchestration on one thread, as on the real MAUI dispatcher.
+var ui = new UiContext();
+SynchronizationContext.SetSynchronizationContext(ui);
+var checks = RunAsync();
+while (!checks.IsCompleted) ui.Pump();
+checks.GetAwaiter().GetResult();
+Console.WriteLine("All data synchronization checks passed.");
+
+static async Task RunAsync()
+{
+    var now = new DateTime(2026, 10, 17, 9, 0, 0, DateTimeKind.Utc);
+    var root = Path.Combine(Path.GetTempPath(), "chagi-sync-checks-" + Guid.NewGuid().ToString("N"));
+    var server = new TestServer();
+    using var client = new HttpClient(server);
+    var engine = new ChagiDataSyncEngine(client, new Uri("https://fixture.invalid/"), root, () => now);
+    server.Files["results/a.txt"] = Encoding.UTF8.GetBytes("svenska åäö\nförsta resultatet\n");
+    server.HashBodies["results/a.txt"] = Encoding.UTF8.GetBytes("svenska åäö\nförsta resultatet\r\n");
+    server.Files["matches/index.json"] = Encoding.UTF8.GetBytes("[\n]\n");
+    server.HashBodies["matches/index.json"] = Encoding.UTF8.GetBytes("[\r\n]\r\n");
+    var first = await engine.SyncAsync(ChagiDataSyncTrigger.Automatic);
+    Check(first.Outcome == ChagiDataSyncOutcome.Updated && first.FilesDownloaded == 2 && server.Requests.Count == 3,
+        "First sync downloads one manifest and the missing data files");
+    var original = SyncedDataStore.GetDirectory(root);
+    Check(File.ReadAllBytes(Path.Combine(original, "results/a.txt")).SequenceEqual(server.Files["results/a.txt"]),
+        "Pages LF text verifies against mixed LF/final CRLF from PowerShell, preserving the exact downloaded bytes");
+    Check(File.Exists(Path.Combine(original, "matches/index.json")), "Only a complete snapshot becomes active");
+    Check(File.ReadAllBytes(Path.Combine(original, "matches/index.json")).SequenceEqual(server.Files["matches/index.json"]),
+        "LF text from Pages verifies against the publisher's CRLF hash without rewriting the downloaded bytes");
+    var restarted = new ChagiDataSyncEngine(client, new Uri("https://fixture.invalid/"), root, () => now);
+    var count = server.Requests.Count;
+    Check((await restarted.SyncAsync(ChagiDataSyncTrigger.Automatic)).Outcome == ChagiDataSyncOutcome.Skipped && server.Requests.Count == count,
+        "The fifteen-minute limit survives a new engine/app instance without network traffic");
+    now += TimeSpan.FromMinutes(14);
+    await engine.SyncAsync(ChagiDataSyncTrigger.Automatic);
+    Check(server.Requests.Count == count, "Returning within fifteen minutes performs no HTTP request");
+    now += TimeSpan.FromMinutes(1);
+    var unchanged = await engine.SyncAsync(ChagiDataSyncTrigger.Automatic);
+    Check(unchanged.Outcome == ChagiDataSyncOutcome.NoChange && server.Requests.Count == count + 1
+        && server.Requests[^1].Tag == server.ETag && server.NotModified == 1,
+        "A due check sends the stored ETag and receives 304 without downloading data");
+    Check((await engine.GetStatusAsync()).LastSuccessfulSyncUtc == now, "A successful unchanged check updates synchronization status");
+    count = server.Requests.Count;
+    await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(server.Requests.Count == count + 1, "Manual synchronization bypasses the timer while retaining conditional HTTP");
+
+    server.HashBodies.Remove("results/a.txt");
+    server.Files["results/a.txt"] = Encoding.UTF8.GetBytes("ändrat resultat");
+    server.ETag = "\"revision-2\"";
+    count = server.Requests.Count;
+    var updated = await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    var second = SyncedDataStore.GetDirectory(root);
+    Check(updated.FilesDownloaded == 1 && server.Requests.Skip(count).Select(r => r.Path).SequenceEqual(new[] { "manifest.json", "results/a.txt" }),
+        "Only the changed file is downloaded; unchanged match data stays local");
+    Check(second != original && Directory.Exists(original) && File.ReadAllText(Path.Combine(original, "results/a.txt")).Contains("första"),
+        "Readers of the previous snapshot retain an intact immutable set of files");
+
+    server.Files["results/a.txt"] = Encoding.UTF8.GetBytes("tredje resultatet");
+    server.ETag = "\"revision-3\"";
+    server.BadBody = "results/a.txt";
+    var failed = await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(failed.Outcome == ChagiDataSyncOutcome.Failed && SyncedDataStore.GetDirectory(root) == second
+        && File.ReadAllText(Path.Combine(second, "results/a.txt")) == "ändrat resultat",
+        "A checksum mismatch leaves the active data and pointer unchanged");
+    count = server.Requests.Count;
+    Check((await engine.SyncAsync(ChagiDataSyncTrigger.Automatic)).Outcome == ChagiDataSyncOutcome.Skipped && server.Requests.Count == count,
+        "Failed attempts are throttled instead of causing a retry loop");
+    server.BadBody = null;
+    await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(server.Requests[^2].Tag == "\"revision-2\"", "A failed update does not advance the committed ETag");
+
+    var beforeCancel = SyncedDataStore.GetDirectory(root);
+    server.Files["results/a.txt"] = Encoding.UTF8.GetBytes("ännu ett resultat");
+    server.Files["results/b.txt"] = Encoding.UTF8.GetBytes("ny fil");
+    server.ETag = "\"revision-4\"";
+    server.PausePath = "results/b.txt";
+    using var cancellation = new CancellationTokenSource();
+    var pending = engine.SyncAsync(ChagiDataSyncTrigger.Manual, cancellation.Token);
+    await server.Paused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    Check(SyncedDataStore.GetDirectory(root) == beforeCancel, "An incomplete multi-file download is never exposed to readers");
+    cancellation.Cancel();
+    try { await pending; throw new Exception("Expected cancellation"); }
+    catch (OperationCanceledException) { }
+    Check(SyncedDataStore.GetDirectory(root) == beforeCancel
+        && !File.Exists(Path.Combine(beforeCancel, "results/b.txt")), "Background cancellation cannot publish a partial update");
+    server.PausePath = null;
+    await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+
+    server.Files.Remove("matches/index.json");
+    server.ETag = "\"revision-5\"";
+    var removed = await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(removed.Outcome == ChagiDataSyncOutcome.Updated && removed.FilesDownloaded == 0
+        && !File.Exists(Path.Combine(SyncedDataStore.GetDirectory(root), "matches/index.json")),
+        "Removed JSON files disappear atomically without redownloading unchanged files");
+    var current = SyncedDataStore.GetDirectory(root);
+    File.Delete(Path.Combine(current, "results/b.txt"));
+    count = server.Requests.Count;
+    var repaired = await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(repaired.FilesDownloaded == 1 && server.Requests.Skip(count).Select(r => r.Path).SequenceEqual(new[] { "manifest.json", "results/b.txt" }),
+        "A 304 response still repairs a missing local file from the stored manifest");
+    server.ETag = "\"metadata-only\"";
+    count = server.Requests.Count;
+    var metadataOnly = await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(metadataOnly.Outcome == ChagiDataSyncOutcome.NoChange && server.Requests.Count == count + 1,
+        "Manifest timestamp/ETag changes alone do not download data or rebuild readers");
+
+    server.Offline = true;
+    current = SyncedDataStore.GetDirectory(root);
+    var offline = await engine.SyncAsync(ChagiDataSyncTrigger.Manual);
+    Check(offline.Outcome == ChagiDataSyncOutcome.Failed && SyncedDataStore.GetDirectory(root) == current,
+        "Network errors preserve the last complete offline dataset");
+    server.Offline = false;
+    engine.PruneOldSnapshots();
+    Check(Directory.Exists(current) && Directory.GetDirectories(Path.Combine(root, "Data/synced-generations")).Length == 1,
+        "Cold-start cleanup retains the active snapshot and removes obsolete generations");
+
+    var legacyRoot = Path.Combine(Path.GetTempPath(), "chagi-legacy-checks-" + Guid.NewGuid().ToString("N"));
+    var legacy = Path.Combine(legacyRoot, "Data/synced");
+    Directory.CreateDirectory(Path.Combine(legacy, "results"));
+    foreach (var file in server.Files) await File.WriteAllBytesAsync(Path.Combine(legacy, file.Key), file.Value);
+    count = server.Requests.Count;
+    var migrated = await new ChagiDataSyncEngine(client, new Uri("https://fixture.invalid/"), legacyRoot, () => now).SyncAsync(ChagiDataSyncTrigger.Automatic);
+    Check(migrated.Outcome == ChagiDataSyncOutcome.NoChange && server.Requests.Count == count + 1,
+        "Existing installations adopt ETag/checksum metadata without downloading valid legacy data again");
+
+    var delays = new ControlledDelays();
+    var loopChecks = 0;
+    var loop = new ForegroundSyncLoop(_ => { loopChecks++; return Task.CompletedTask; }, TimeSpan.FromMinutes(15), delay: delays.Delay);
+    loop.SetForeground(true);
+    loop.SetForeground(true);
+    (await delays.Next()).Complete();
+    var interval = await delays.Next();
+    Check(loopChecks == 1 && interval.Duration == TimeSpan.FromMinutes(15), "Duplicate activation events start only one foreground polling loop");
+    loop.SetForeground(false);
+    await loop.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+    Check(loopChecks == 1 && loop.Token.IsCancellationRequested, "Backgrounding cancels the timer and leaves no running checks");
+    loop.SetForeground(true);
+    (await delays.Next()).Complete();
+    await delays.Next();
+    Check(loopChecks == 2, "Resuming starts a new check, subject to the engine's persisted throttle");
+    loop.SetForeground(false);
+    await loop.Completion;
+
+    var page = new TestPage();
+    Shell.Current = new Shell { CurrentPage = page };
+    await ResultsDataRefreshService.AppearingAsync(page);
+    Check(page.Invalidations == 1 && page.Refreshes == 1, "Initial page appearance loads one current dataset");
+    await ResultsDataRefreshService.RefreshVisiblePagesAsync();
+    Check(page.Refreshes == 1, "Unchanged data does not rebuild the visible page");
+    CompetitorRepository.Version++;
+    await ResultsDataRefreshService.RefreshVisiblePagesAsync();
+    Check(page.Refreshes == 2 && page.Invalidations == 2 && page.Selection == "Sparring",
+        "Published data refreshes the visible page while retaining the user's selection");
+    ResultsDataRefreshService.Disappearing(page);
+    CompetitorRepository.Version++;
+    await ResultsDataRefreshService.RefreshVisiblePagesAsync();
+    Check(page.Refreshes == 2, "Hidden pages receive no background UI work");
+    await ResultsDataRefreshService.AppearingAsync(page);
+    Check(page.Refreshes == 3 && page.Invalidations == 3, "A previously hidden page adopts new data on its next appearance");
+
+    var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    page.Block = blocked.Task;
+    CompetitorRepository.Version++;
+    var refreshing = ResultsDataRefreshService.RefreshVisiblePagesAsync();
+    await Task.Yield();
+    CompetitorRepository.Version++;
+    var overlapping = ResultsDataRefreshService.RefreshVisiblePagesAsync();
+    blocked.SetResult();
+    await Task.WhenAll(refreshing, overlapping).WaitAsync(TimeSpan.FromSeconds(5));
+    Check(page.LastVersion == CompetitorRepository.Version, "Overlapping loads converge on the newest dataset without deadlocking");
+}
+
+static void Check(bool condition, string description)
+{
+    if (!condition) throw new Exception(description);
+    Console.WriteLine("PASS: " + description);
+}
+sealed class TestServer : HttpMessageHandler
+{
+    public Dictionary<string, byte[]> Files { get; } = new();
+    public Dictionary<string, byte[]> HashBodies { get; } = new();
+    public List<(string Path, string? Tag)> Requests { get; } = [];
+    public string ETag = "\"revision-1\"";
+    public int NotModified;
+    public bool Offline;
+    public string? BadBody;
+    public string? PausePath;
+    public TaskCompletionSource Paused { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        var path = request.RequestUri!.AbsolutePath.TrimStart('/');
+        var tag = request.Headers.IfNoneMatch.FirstOrDefault()?.ToString();
+        Requests.Add((path, tag));
+        if (Offline) throw new HttpRequestException("Offline fixture");
+        if (path == "manifest.json")
+        {
+            if (tag == ETag) { NotModified++; return new(HttpStatusCode.NotModified) { Headers = { ETag = EntityTagHeaderValue.Parse(ETag) } }; }
+            var manifest = new ChagiDataManifest
+            {
+                Version = "fixture", Updated = ETag,
+                Files = Files.Select(file => new ChagiDataManifestFile { Path = file.Key, Sha256 = Convert.ToHexString(SHA256.HashData(HashBodies.GetValueOrDefault(file.Key, file.Value))) }).ToList()
+            };
+            return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(manifest)), Headers = { ETag = EntityTagHeaderValue.Parse(ETag) } };
+        }
+        if (path == PausePath)
+        {
+            Paused.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+        }
+        return new(HttpStatusCode.OK) { Content = new ByteArrayContent(path == BadBody ? Encoding.UTF8.GetBytes("truncated") : Files[path]) };
+    }
+}
+sealed class ControlledDelays
+{
+    readonly Channel<DelayItem> _pending = Channel.CreateUnbounded<DelayItem>();
+    public Task Delay(TimeSpan duration, CancellationToken token)
+    {
+        var item = new DelayItem(duration);
+        token.Register(() => item.Finish.TrySetCanceled(token));
+        _pending.Writer.TryWrite(item);
+        return item.Finish.Task;
+    }
+    public async Task<DelayItem> Next() => await _pending.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    public sealed class DelayItem(TimeSpan duration)
+    {
+        public TimeSpan Duration => duration;
+        public TaskCompletionSource Finish { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void Complete() => Finish.TrySetResult();
+    }
+}
+sealed class UiContext : SynchronizationContext
+{
+    readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = new();
+    public override void Post(SendOrPostCallback callback, object? state) => _queue.Add((callback, state));
+    public void Pump() { if (_queue.TryTake(out var item, 100)) item.Callback(item.State); }
+}
+sealed class TestPage : IResultsDataPage
+{
+    public int Invalidations, Refreshes, LastVersion;
+    public string Selection = "Sparring";
+    public Task? Block;
+    public Task InvalidateDataAsync() { Invalidations++; return Task.CompletedTask; }
+    public async Task RefreshDataAsync()
+    {
+        Refreshes++;
+        if (Block != null) await Block;
+        LastVersion = CompetitorRepository.Version;
+    }
+}
+public sealed class Shell
+{
+    public static Shell? Current { get; set; }
+    public object? CurrentPage { get; set; }
+}
+public static class AppDiagnostics { public static void Log(Exception error, string context) => throw new Exception(context, error); }
+namespace ITF_Taekwondo_Gradering.Logic
+{
+    public static class CompetitorRepository
+    {
+        public static int Version;
+        public static int GetChangeVersion() => Version;
+    }
+}

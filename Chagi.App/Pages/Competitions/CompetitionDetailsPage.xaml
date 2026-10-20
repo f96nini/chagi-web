@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:logic="clr-namespace:ITF_Taekwondo_Gradering.Logic;assembly=Chagi.Core"
+             xmlns:views="clr-namespace:ITF_Taekwondo_Gradering.Views"
+             xmlns:local="clr-namespace:ITF_Taekwondo_Gradering"
+             x:Class="ITF_Taekwondo_Gradering.CompetitionDetailsPage"
+             x:Name="Self"
+             Title="Tävlingsresultat">
+    <local:AppBackgroundView>
+    <CollectionView x:Name="DivisionsView"
+                    BackgroundColor="Transparent"
+                    SelectionMode="None"
+                    ItemSizingStrategy="MeasureAllItems">
+        <CollectionView.ItemsLayout>
+            <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+        </CollectionView.ItemsLayout>
+        <CollectionView.Header>
+            <VerticalStackLayout Padding="16"
+                                 Spacing="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label x:Name="TitleLabel"
+                           FontAttributes="Bold"
+                           FontSize="20"
+                           TextColor="White" />
+                    <Label x:Name="CityLabel"
+                           FontSize="14"
+                           TextColor="White" />
+                </VerticalStackLayout>
+
+                <local:GenderFilterView x:Name="GenderFilter" SelectionChanged="OnGenderChanged" />
+
+                <FlexLayout Direction="Row"
+                            Wrap="Wrap"
+                            AlignItems="Start"
+                            AlignContent="Start"
+                            JustifyContent="SpaceBetween">
+                        <Button x:Name="AllButton"
+                                Text="Alla"
+                                Clicked="OnAllClicked"
+                                Padding="10,10" Margin="0,0,6,6" FlexLayout.Shrink="0" />
+                        <Button x:Name="TulButton"
+                                Text="Tul"
+                                Clicked="OnTulClicked"
+                                Padding="10,10" Margin="0,0,6,6" FlexLayout.Shrink="0" />
+                        <Button x:Name="SparringButton"
+                                Text="Sparr."
+                                Clicked="OnSparringClicked"
+                                Padding="10,10" Margin="0,0,6,6" FlexLayout.Shrink="0" />
+                        <Button x:Name="SpecButton"
+                                Text="Spec"
+                                Clicked="OnSpecClicked"
+                                Padding="10,10" Margin="0,0,6,6" FlexLayout.Shrink="0" />
+                        <Button x:Name="KrossButton"
+                                Text="Kross"
+                                Clicked="OnKrossClicked"
+                                Padding="10,10" Margin="0,0,0,6" FlexLayout.Shrink="0" />
+                </FlexLayout>
+
+                <Label x:Name="EmptyStateLabel"
+                       Text="Inga resultat för valt filter."
+                       FontSize="14"
+                       IsVisible="False"
+                       TextColor="White" />
+
+                <views:ClubCompetitionCard x:Name="ClubCompetitionCardView"
+                                           IsVisible="False" />
+
+                <local:MedalLeaderboardLink x:Name="MedalLeaderboardButton" IsVisible="False" Tapped="OnMedalLeaderboardTapped" />
+
+            </VerticalStackLayout>
+        </CollectionView.Header>
+        <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="logic:CompetitionDivisionEntry">
+                <views:CompetitionDetailsCard Division="{Binding .}"
+                                              HasMatchData="{Binding HasMatchData}"
+                                              DivisionSelectedCommand="{Binding Source={x:Reference Self}, Path=OpenDivisionCommand}"
+                                              Margin="16,0,16,0"
+                                              CompetitorSelectedCommand="{Binding Source={x:Reference Self}, Path=OpenCompetitorCommand}" />
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+        <CollectionView.Footer>
+            <BoxView HeightRequest="16" Color="Transparent" />
+        </CollectionView.Footer>
+    </CollectionView>
+    </local:AppBackgroundView>
+</ContentPage>

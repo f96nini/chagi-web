@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ITF_Taekwondo_Gradering.Views.CompetitionDetailsCard"
+             x:Name="Self">
+    <Border Stroke="{AppThemeBinding Light=#D9E2EC, Dark=#3E4C59}"
+            StrokeThickness="1"
+            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1F2933}"
+            StrokeShape="RoundRectangle 12"
+            Padding="12">
+        <VerticalStackLayout Spacing="8">
+            <Border x:Name="TitleBorder" Stroke="{AppThemeBinding Light=#BCCCDC, Dark=#627D98}"
+                    StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                    BackgroundColor="{AppThemeBinding Light=#E6EEF5, Dark=#243B53}"
+                    Padding="12,10" MinimumHeightRequest="48">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label x:Name="TitleLabel" VerticalOptions="Center"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#102A43, Dark=#F0F4F8}" />
+                    <Label x:Name="DetailsArrow" IsVisible="False" Grid.Column="1" Text="›" FontSize="26" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#184E77, Dark=#BCCCDC}"
+                           SemanticProperties.Description="Visa matchdetaljer" />
+                </Grid>
+            </Border>
+            <Grid ColumnDefinitions="Auto,Auto"
+                  RowDefinitions="Auto">
+                <ContentView x:Name="BeltIconsHost"
+                             VerticalOptions="Center" />
+                <Label x:Name="BeltGroupLabel"
+                       FontSize="13"
+                       VerticalTextAlignment="Center"
+                       IsVisible="False" Grid.Column="1" Margin="10,0,0,0"/>
+            </Grid>
+            <VerticalStackLayout x:Name="WinnerRowsHost"
+                                 Spacing="8" />
+            <Button x:Name="OtherParticipantsToggle"
+                    IsVisible="False"
+                    Clicked="OnOtherParticipantsClicked"
+                    CornerRadius="8" FontSize="14" Padding="12,8"
+                    BackgroundColor="{AppThemeBinding Light=#E6EEF5, Dark=#243B53}"
+                    TextColor="{AppThemeBinding Light=#184E77, Dark=#BCCCDC}" />
+            <VerticalStackLayout x:Name="OtherParticipantRowsHost"
+                                 Spacing="8" IsVisible="False" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

@@ -1,0 +1,32 @@
+@page "/fighters"
+@inherits ResultsPageBase
+@inject PublicImages Images
+<PageTitle>Fighters · Chagi</PageTitle>
+<div class="page-intro"><span class="eyebrow">MÄNNISKORNA BAKOM RESULTATEN</span><h1>Fighters<span class="accent">.</span></h1><p>Hitta din klubbkompis, följ en utövare eller upptäck ett nytt namn.</p></div>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Data != null)
+{
+    <div class="filter-bar"><label class="search-field"><span class="sr-only">Sök namn eller klubb</span><span aria-hidden="true">⌕</span><input type="search" placeholder="Sök namn eller klubb…" @bind="search" @bind:event="oninput" @bind:after="ResetPage" /></label>
+        <label>Klubb<select @bind="club" @bind:after="ResetPage"><option value="">Alla klubbar</option>@foreach (var c in Data.Fighters.Select(f => f.Team).Distinct().Order(SwedishNameComparer.Instance)) { <option>@c</option> }</select></label>
+        <label>Sortera<select @bind="sort" @bind:after="ResetPage"><option value="name">Namn A–Ö</option><option value="points">Medaljpoäng</option></select></label>
+    </div>
+    <div class="section-heading compact"><h2>Alla fighters <span class="count-pill">@Filtered.Count</span></h2><span class="muted">Publicerad tävlingshistorik</span></div>
+    @if (Filtered.Count == 0) { <div class="empty-state"><h2>Inga fighters hittades</h2><p>Prova att ändra namnet eller välja en annan klubb.</p><button class="text-button" @onclick="Clear">Rensa filter ↻</button></div> }
+    else
+    {
+        <div class="table-scroll"><table class="fighter-table"><caption class="sr-only">Fighters med publicerade resultat</caption><thead><tr><th scope="col">Fighter</th><th scope="col">Klubb</th><th scope="col">Medaljer</th><th scope="col" class="number">Poäng</th><th scope="col"><span class="sr-only">Profil</span></th></tr></thead><tbody>
+        @foreach (var fighter in Filtered.Skip(page * 30).Take(30))
+        {
+            <tr @key="fighter.Id"><td><a class="fighter-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")"><Avatar Name="@fighter.FullName" Url="@Images.Fighter(ResultLinks.FighterId(fighter))" Alt="@($"Porträtt av {fighter.FullName}")" /><span><strong>@fighter.FullName</strong><small>@(fighter.CurrentAgeClass.HasValue ? RankingClassFilterService.ToDisplayName(fighter.CurrentAgeClass.Value) : "Klass ej angiven")</small></span></a></td><td><ClubBadge Name="@fighter.Team" /></td><td><Medals Gold="fighter.Results.Count(r => r.Placement == 1)" Silver="fighter.Results.Count(r => r.Placement == 2)" Bronze="fighter.Results.Count(r => r.Placement == 3)" /></td><td class="number points">@fighter.TotalPoints</td><td aria-hidden="true">↗</td></tr>
+        }
+        </tbody></table></div><Pagination Total="Filtered.Count" Page="page" Changed="p => page = p" />
+    }
+}
+@code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    string search = "", club = "", sort = "name"; string? previousQuery; int page;
+    protected override void OnParametersSet() { if (Query != previousQuery) { search = Query ?? ""; previousQuery = Query; page = 0; } }
+    List<Competitor> Filtered { get { var items = Data?.Fighters.Where(f => (club == "" || f.Team == club) && (f.FullName.Contains(search, StringComparison.OrdinalIgnoreCase) || f.Team.Contains(search, StringComparison.OrdinalIgnoreCase))) ?? []; return (sort == "points" ? items.OrderByDescending(f => f.TotalPoints).ThenBy(f => f.FullName, SwedishNameComparer.Instance) : items.OrderBy(f => f.FullName, SwedishNameComparer.Instance)).ToList(); } }
+    void ResetPage() => page = 0;
+    void Clear() { search = ""; club = ""; page = 0; }
+}

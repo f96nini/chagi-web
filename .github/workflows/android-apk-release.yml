@@ -1,0 +1,74 @@
+name: Android APK Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Restore
+        run: dotnet restore .\Chagi.App\ITF-Taekwondo-Gradering.csproj -p:TargetFrameworks=net9.0-android
+
+      - name: Publish APK
+        run: dotnet publish .\Chagi.App\ITF-Taekwondo-Gradering.csproj -f net9.0-android -p:TargetFrameworks=net9.0-android -c Release /p:AndroidPackageFormats=apk
+
+      - name: Prepare APK artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $apk = Get-ChildItem -Path .\Chagi.App\bin\Release\net9.0-android -Filter *-Signed.apk |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if (-not $apk) {
+            throw "No signed APK was produced."
+          }
+
+          $tagName = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "manual-$env:GITHUB_RUN_NUMBER" }
+          $target = "artifacts\Chagi-$tagName.apk"
+          Copy-Item -LiteralPath $apk.FullName -Destination $target -Force
+          "APK_PATH=$target" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ env.APK_PATH }}
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $apk = $env:APK_PATH
+          $notes = "Android APK built from commit $env:GITHUB_SHA."
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $apk --clobber
+          }
+          else {
+            gh release create $tag $apk --title "Chagi $tag" --notes $notes --latest
+          }

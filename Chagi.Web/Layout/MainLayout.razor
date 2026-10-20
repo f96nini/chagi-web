@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+<a class="skip-link" href="#main" @onclick="SkipAsync" @onclick:preventDefault>Hoppa till innehållet</a>
+<header class="site-header">
+    <div class="header-inner">
+        <a class="wordmark" href="" aria-label="Chagi, startsida"><span class="brand-mark" aria-hidden="true">c<span>.</span></span>chagi<span class="brand-dot">.</span></a>
+        <nav aria-label="Huvudmeny">
+            <NavLink href="" Match="NavLinkMatch.All">Översikt</NavLink>
+            <NavLink href="tavlingar">Tävlingar</NavLink>
+            <NavLink href="fighters">Fighters</NavLink>
+            <NavLink href="ranking">Ranking <span aria-hidden="true">↗</span></NavLink>
+        </nav>
+        <span class="header-label"><span class="status-dot"></span> SVENSK ITF TAEKWONDO</span>
+    </div>
+</header>
+<main id="main" class="main-content" tabindex="-1" @ref="main">@Body</main>
+<footer class="site-footer">
+    <div><a class="footer-brand" href="">chagi.</a><span>Svensk taekwondo, samlad.</span></div>
+    <div><a href="om">Om resultaten</a><span class="footer-rule">Guld 5 · Silver 3 · Brons 1</span></div>
+</footer>
+@code {
+    ElementReference main;
+    async Task SkipAsync() => await main.FocusAsync();
+}

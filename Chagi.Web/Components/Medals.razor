@@ -1,0 +1,10 @@
+<span class="medals" aria-label="@($"{Gold} guld, {Silver} silver, {Bronze} brons")">
+    <span><i class="medal gold" aria-hidden="true"></i>@Gold</span>
+    <span><i class="medal silver" aria-hidden="true"></i>@Silver</span>
+    <span><i class="medal bronze" aria-hidden="true"></i>@Bronze</span>
+</span>
+@code {
+    [Parameter] public int Gold { get; set; }
+    [Parameter] public int Silver { get; set; }
+    [Parameter] public int Bronze { get; set; }
+}

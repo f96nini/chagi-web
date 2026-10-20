@@ -1,0 +1,20 @@
+@page "/tavlingar"
+@inherits ResultsPageBase
+<PageTitle>Tävlingar · Chagi</PageTitle>
+<div class="page-intro"><span class="eyebrow">PÅ MATTAN, GENOM ÅREN</span><h1>Tävlingar<span class="accent">.</span></h1><p>Hitta tävlingarna. Utforska klasserna. Se resultaten.</p></div>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Data != null)
+{
+    <div class="filter-bar"><label class="search-field"><span class="sr-only">Sök tävling eller plats</span><span aria-hidden="true">⌕</span><input type="search" placeholder="Sök tävling eller plats…" @bind="search" @bind:event="oninput" @bind:after="ResetPage" /></label>
+        <label>År<select @bind="year" @bind:after="ResetPage"><option value="0">Alla år</option>@foreach (var y in Data.Competitions.Select(c => c.CompetitionDate.Year).Distinct().OrderDescending()) { <option value="@y">@y</option> }</select></label>
+        <span class="filter-count">@Filtered.Count tävlingar</span>
+    </div>
+    @if (Filtered.Count == 0) { <div class="empty-state"><h2>Inga tävlingar hittades</h2><p>Prova ett annat namn, en annan plats eller ett annat år.</p><button class="text-button" @onclick="Clear">Rensa filter ↻</button></div> }
+    else { <div class="competition-grid">@foreach (var item in Filtered.Skip(page * 12).Take(12)) { <CompetitionCard Item="item" /> }</div><Pagination Total="Filtered.Count" Page="page" PageSize="12" Changed="p => page = p" /> }
+}
+@code {
+    string search = ""; int year; int page;
+    List<CompetitionCatalogEntry> Filtered => Data?.Competitions.Where(c => (year == 0 || c.CompetitionDate.Year == year) && (c.CompetitionName.Contains(search, StringComparison.OrdinalIgnoreCase) || c.CompetitionCity.Contains(search, StringComparison.OrdinalIgnoreCase))).ToList() ?? [];
+    void ResetPage() => page = 0;
+    void Clear() { search = ""; year = 0; page = 0; }
+}

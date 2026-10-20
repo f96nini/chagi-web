@@ -1,0 +1,18 @@
+@if (!failed && Url != null)
+{
+    <img class="avatar @Size" src="@Url" alt="@Alt" width="48" height="48" loading="lazy" decoding="async" @onerror="() => failed = true" />
+}
+else
+{
+    <span class="avatar @Size" aria-hidden="true">@Initials</span>
+}
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string? Url { get; set; }
+    [Parameter] public string Alt { get; set; } = "";
+    [Parameter] public string Size { get; set; } = "";
+    bool failed;
+    protected override void OnParametersSet() { if (lastUrl != Url) { failed = false; lastUrl = Url; } }
+    string? lastUrl;
+    string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0])).ToUpperInvariant();
+}

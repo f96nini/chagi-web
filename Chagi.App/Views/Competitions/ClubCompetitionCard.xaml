@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ITF_Taekwondo_Gradering.Views.ClubCompetitionCard"
+             x:Name="Self">
+    <Border Stroke="{AppThemeBinding Light=#D9E2EC, Dark=#3E4C59}"
+            StrokeThickness="1"
+            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1F2933}"
+            StrokeShape="RoundRectangle 12"
+            Padding="12">
+        <VerticalStackLayout Spacing="10">
+            <Label Text="Klubbställning"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#102A43, Dark=#F0F4F8}" />
+
+            <Grid x:Name="RowsHost"
+                  ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                  RowDefinitions="Auto"
+                  RowSpacing="8"
+                  ColumnSpacing="6">
+                <Label Text="#"
+                       FontAttributes="Bold"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+                <Label Grid.Column="1"
+                       Text="Klubb"
+                       FontAttributes="Bold"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+                <Label Grid.Column="2"
+                       Grid.ColumnSpan="6"
+                       Text="Medaljer"
+                       FontAttributes="Bold"
+                       FontSize="12"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+                <Label Grid.Column="8"
+                       Text="Poäng"
+                       FontAttributes="Bold"
+                       FontSize="12"
+                       HorizontalTextAlignment="End"
+                       TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+            </Grid>
+
+            <Label x:Name="EmptyStateLabel"
+                   Text="Inga klubbresultat för valt filter."
+                   IsVisible="False"
+                   FontSize="13"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ITF_Taekwondo_Gradering.Views.MedalSummaryRowView"
+             x:Name="Self">
+    
+    <VerticalStackLayout Spacing="6">
+        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,0,0,6">
+            <VerticalStackLayout Grid.Column="0" Spacing="4">
+                <Image Source="trophy_gold.png" HeightRequest="{Binding Source={x:Reference Self}, Path=TrophyHeight}" Aspect="AspectFit"
+                       SemanticProperties.Description="Guld" />
+                <Label Text="{Binding Source={x:Reference Self}, Path=Summary.GoldCount}"
+                       HorizontalTextAlignment="Center"
+                       FontAttributes="Bold" FontSize="18" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                <Image Source="trophy_silver.png" HeightRequest="{Binding Source={x:Reference Self}, Path=TrophyHeight}" Aspect="AspectFit"
+                       SemanticProperties.Description="Silver" />
+                <Label Text="{Binding Source={x:Reference Self}, Path=Summary.SilverCount}"
+                       HorizontalTextAlignment="Center"
+                       FontAttributes="Bold" FontSize="18" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Grid.Column="2" Spacing="4">
+                <Image Source="trophy_bronze.png" HeightRequest="{Binding Source={x:Reference Self}, Path=TrophyHeight}" Aspect="AspectFit"
+                       SemanticProperties.Description="Brons" />
+                <Label Text="{Binding Source={x:Reference Self}, Path=Summary.BronzeCount}"
+                       HorizontalTextAlignment="Center"
+                       FontAttributes="Bold" FontSize="18" />
+            </VerticalStackLayout>
+        
+        </Grid>
+
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6"
+              IsVisible="{Binding Source={x:Reference Self}, Path=ShowInlineDetails}">
+            <Label Grid.Row="0" Grid.Column="0"
+                   Text="{Binding Source={x:Reference Self}, Path=Summary.CompetitionCountText}"
+                   HorizontalTextAlignment="Center" FontSize="14"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+            <Label Grid.Row="0" Grid.Column="1"
+                   Text="{Binding Source={x:Reference Self}, Path=Summary.TotalMedalsText}"
+                   HorizontalTextAlignment="Center" FontSize="14" FontAttributes="Bold" />
+            <Label Grid.Row="1" Grid.Column="0"
+                   Text="{Binding Source={x:Reference Self}, Path=Summary.LeaguePositionText}"
+                   HorizontalTextAlignment="Center" FontSize="13"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+            <Label Grid.Row="1" Grid.Column="1"
+                   Text="{Binding Source={x:Reference Self}, Path=Summary.PointsLeaguePositionText}"
+                   HorizontalTextAlignment="Center" FontSize="13"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+        </Grid>
+
+        <VerticalStackLayout Spacing="6" IsVisible="{Binding Source={x:Reference Self}, Path=ShowStackedDetails}">
+            <Label Text="{Binding Source={x:Reference Self}, Path=Summary.CompetitionCountText}"
+                   VerticalTextAlignment="Center"
+                   HorizontalTextAlignment="Center"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+            <Label Text="{Binding Source={x:Reference Self}, Path=Summary.TotalMedalsText}"
+                   FontSize="14" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+            <Label HorizontalTextAlignment="Center"
+                   FontSize="14"
+                   Text="{Binding Source={x:Reference Self}, Path=Summary.LeaguePositionText}"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+            <Label HorizontalTextAlignment="Center" FontSize="14"
+                   Text="{Binding Source={x:Reference Self}, Path=Summary.PointsLeaguePositionText}"
+                   TextColor="{AppThemeBinding Light=#52606D, Dark=#CBD2D9}" />
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>
