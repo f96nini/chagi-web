@@ -54,7 +54,24 @@ var unfinished = new DivisionMatch { MatchNumber = 2, Finished = 0, RedId = 1, B
 var unfinishedCard = await Render<MatchCard>(new() { ["Match"] = unfinished, ["Matches"] = new[] { unfinished }, ["Fighters"] = data.Fighters });
 Check(unfinishedCard.Contains("Ej avslutad") && !unfinishedCard.Contains("alt=\"Vinnare\""), "Unfinished match details never mark a winner");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
-Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan"), "Poängligan renders separate gender/class groups from the shared calculator");
+Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan") && ranking.Contains("Sortera på") && ranking.Contains("Total Poäng") && ranking.Contains(">Klass</option>") && ranking.Contains(">Klubb</option>"), "Poängligan defaults to total points and offers class and club sorting");
+var rankingFighters = data.Fighters.Select(f => new Competitor {
+    Id = f.Id, FirstName = f.FirstName, LastName = f.LastName, Team = f.Team, IsMale = f.IsMale,
+    CurrentAgeClass = f.CurrentAgeClass, LatestBelt = f.LatestBelt, Results = f.Results.ToList()
+}).ToList();
+var byPoints = RankingDisplayService.BuildGroups(rankingFighters, null, CompetitionDisciplineE.Alla, null, RankingSortMode.TotalPoints);
+Check(byPoints.Count == 1 && byPoints[0].Title == "Total Poäng" && byPoints[0].Rows.Count == 3 &&
+      byPoints[0].Rows.Select(row => row.Entry.Score).SequenceEqual(byPoints[0].Rows.Select(row => row.Entry.Score).OrderDescending()) &&
+      byPoints[0].Rows[0].Entry.PositionLabel == "1", "Total points sorts all selected fighters in one ranked list");
+var byClass = RankingDisplayService.BuildGroups(rankingFighters, null, CompetitionDisciplineE.Alla, null, RankingSortMode.Class);
+Check(byClass.Count == 2 && byClass.All(group => group.Title.Contains("Kadetter")) &&
+      byClass.SelectMany(group => group.Rows).Count() == 3 && byClass.Any(group => group.Label == "Herrar / pojkar") &&
+      byClass.Any(group => group.Label == "Damer / flickor"), "Class sorting keeps separate class and gender rankings");
+rankingFighters[0].Team = "Ås klubb";
+var byClub = RankingDisplayService.BuildGroups(rankingFighters, null, CompetitionDisciplineE.Alla, null, RankingSortMode.Club);
+Check(byClub.Count == 2 && byClub[0].Title == "Testklubb" && byClub[1].Title == "Ås klubb" &&
+      byClub.SelectMany(group => group.Rows).Count() == 3 && byClub.SelectMany(group => group.Rows).Any(row => row.Entry.PositionLabel == "1"),
+      "Club sorting groups clubs alphabetically and retains total ranking positions");
 var clubs = await Render<Chagi.Web.Pages.Clubs>();
 var clubId = ClubCatalogService.ResolveClub("Testklubb")!.Id;
 Check(clubs.Contains("Testklubb") && clubs.Contains("klubbar/" + Uri.EscapeDataString(clubId)) && clubs.Contains("Alla klubbar"), "Club catalog includes a results-only club with a working details link");
