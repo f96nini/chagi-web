@@ -51,3 +51,15 @@ table{font-size:.93rem}th{background:#eaf2fb;color:#315577;font-size:.75rem}td{b
 @media(max-width:800px){.hero{grid-template-columns:1fr}.hero-banner{margin-top:25px}}
 @media(max-width:600px){.hero-banner{margin-top:31px}}
 .profile-belt{display:flex;align-items:center;flex-wrap:wrap;gap:7px 10px;margin-top:10px}.profile-belt-label{color:var(--muted);font-size:.88rem}.profile-belt-icons{display:inline-flex;align-items:center;gap:5px}.profile-belt-icon{display:inline-block;width:60px;height:12px;border:1px solid #14293e;border-radius:1px}.profile-belt-icon.belt-white{background:#fff}.profile-belt-icon.belt-yellow{background:#ffeb3b}.profile-belt-icon.belt-green{background:#008000}.profile-belt-icon.belt-blue{background:#0000ff}.profile-belt-icon.belt-red{background:#ff0000}.profile-belt-name{color:var(--ink);font-size:.88rem;font-weight:700}
+.competition-standings{margin:20px 0 0}
+.competition-standings .section-heading{flex-wrap:wrap}
+.competition-standings .table-scroll{margin:0}
+.competition-standings table{min-width:500px}
+.competition-standings .medals{white-space:nowrap}
+.competition-leaderboard-link{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 24px;margin:22px 0 32px;background:#eaf2fb;border:1px solid var(--line);border-radius:8px}
+.competition-leaderboard-link:hover{background:#deebf7;text-decoration:none}
+.competition-leaderboard-link>span:first-child{display:flex;flex-direction:column;gap:4px}
+.competition-leaderboard-link strong{font-size:1.2rem;color:#184e77}
+.competition-leaderboard-link small{color:var(--muted);font-size:.82rem}
+.competition-leaderboard-link>span:last-child{font-size:1.3rem;color:#184e77}
+.competition-medal-leaderboard{margin:0 0 40px}

@@ -1,0 +1,39 @@
+@page "/tavlingar/{Id}/medaljtoppen"
+@inherits ResultsPageBase
+
+<PageTitle>Medaljtoppen · @(Competition?.CompetitionName ?? "Tävling") · Chagi</PageTitle>
+<a class="back-link" href="@($"tavlingar/{Id}")">← Till tävlingen</a>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Competition is { } competition && Data is not null)
+{
+    var groups = CompetitionMedalLeaderboardService.BuildGroups(competition.Divisions);
+    <div class="page-intro"><span class="eyebrow">@competition.CompetitionDate.ToString("dd MMMM yyyy") · @competition.CompetitionCity</span><h1>Medaljtoppen<span class="accent">.</span></h1><p>@competition.CompetitionName · Samma poäng ger delad plats. Namnen sorteras på efternamn.</p></div>
+    @if (groups.Count == 0)
+    {
+        <div class="empty-state"><h2>Inga deltagare finns registrerade för tävlingen.</h2></div>
+    }
+    else
+    {
+        <div class="club-leaderboard competition-medal-leaderboard">
+            @foreach (var group in groups)
+            {
+                <section class="club-leaderboard-group" aria-label="@($"Plats {group.Position}, {group.PointsLabel}")">
+                    <div class="club-leaderboard-heading">@if (group.HasTrophy) { <img src="@($"images/trophy-{(group.Position == 1 ? "gold" : group.Position == 2 ? "silver" : "bronze")}.svg")" alt="" width="36" height="36" /> }<div><span class="eyebrow">@(group.HasTitle ? group.Title : $"Plats {group.Position}")</span><strong>@group.PointsLabel</strong></div></div>
+                    <ul>
+                        @foreach (var entry in group)
+                        {
+                            var fighter = Data.Fighters.FirstOrDefault(f => f.Id == entry.CompetitorId);
+                            <li><span>@if (fighter is not null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@entry.CompetitorName</a> } else { @entry.CompetitorName }<small>@entry.Team · @entry.AgeClassLabel</small></span><strong>@entry.PointsLabel</strong></li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+    }
+}
+else if (!Busy && Data is not null) { <div class="empty-state"><h1>Tävlingen finns inte</h1><p>Gå tillbaka till tävlingarna och välj en annan.</p></div> }
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    CompetitionCatalogEntry? Competition => Data?.Competitions.FirstOrDefault(c => ResultLinks.CompetitionId(c) == Id);
+}
