@@ -47,3 +47,6 @@ table{font-size:.93rem}th{background:#eaf2fb;color:#315577;font-size:.75rem}td{b
 @media(max-width:600px){.profile-tabs>button{font-size:.8rem;padding:9px 12px}.fighter-badge{padding:14px;gap:12px}.fighter-badge img{width:58px;height:58px}.fighter-badge h3{font-size:1rem}.profile-club-logo .avatar.large{padding:6px}}
 :root{--sweden-blue:#3b90ce}
 .hero h1 .sweden{color:var(--sweden-blue)}
+.hero-banner{display:block;width:100%;height:auto;border-radius:8px}
+@media(max-width:800px){.hero{grid-template-columns:1fr}.hero-banner{margin-top:25px}}
+@media(max-width:600px){.hero-banner{margin-top:31px}}
