@@ -83,14 +83,12 @@ sin egna befintliga täta poänggruppering; dess regler ändras inte av webbrank
 
 ## GitHub Pages
 
-1. Skapa ett GitHub-repository för projektet och pusha innehållet till `main`
-   (eller `master`). Koppla rätt remote; projektet pekar inte automatiskt på appens
-   gamla repository.
-2. Välj **Settings → Pages → Build and deployment → GitHub Actions**.
-3. Workflow `pages.yml` kör tester, publicerar WebAssembly och laddar upp endast
-   `artifacts/site/wwwroot`. Deploy-jobbet använder miljön `github-pages`.
-4. Kontrollera rättslig grund och publiceringsrättigheter, särskilt för minderåriga,
-   innan webbplatsen görs publik. En tidigare apppublicering räcker inte som underlag.
+Webbplatsen är publicerad på <https://f96nini.github.io/chagi-web/> från
+<https://github.com/f96nini/chagi-web>. GitHub Pages använder GitHub Actions som
+källa. En push till `main` kör `pages.yml`: tester, WebAssembly-publicering och
+uppladdning av endast `artifacts/site/wwwroot`. Deploy-jobbet använder miljön
+`github-pages`. Kontrollera rättslig grund och publiceringsrättigheter innan nya
+identifierande uppgifter eller bilder läggs till, särskilt för minderåriga.
 
 `configure-pages` ger korrekt base-adress för `/repo/` och egen domän.
 `prepare-pages.mjs` skriver `<base>`, skapar `.nojekyll` och anpassar `404.html`.
@@ -108,8 +106,9 @@ node scripts/prepare-pages.mjs artifacts/site/wwwroot /chagi-web/
 
 GitHub Pages styr HTTP-cacheheaders. Ingen service worker låser HTML till en gammal
 version. Blazor använder sina genererade resursmanifest; ladda om sidan efter deploy
-och kontrollera både startsida och en direktlänk. Liveheaders, CORS och faktisk
-uppdatering efter deploy måste verifieras mot det publicerade ursprunget.
+och kontrollera både startsida och en direktlänk. Startsidan, WebAssembly-resurser,
+datakällans CORS-headers och omladdning av `/ranking` har verifierats mot den
+publicerade sajten. Uppdatering efter en framtida deploy återstår att verifiera.
 
 ## Bilder
 
@@ -121,16 +120,8 @@ Initialer används som fallback, även om en bild inte kan laddas. Komponenterna
 använder lazy loading, asynkron avkodning och stabila bildmått. Små WebP/AVIF-bilder
 kan ligga på Pages och senare ersättas med objektlagrings-URL:er utan modelländring.
 
-## Flytta till D:\work\repos
+## Projektkopia på Heisenberg
 
-Arbetet gjordes i `D:\work\tkd-appen\chagi-web` eftersom den sessionen saknar
-skrivrättighet utanför sin workspace. Projektet har inga absoluta källreferenser.
-Kör följande i en vanlig PowerShell-session för en ren källkodskopia:
-
-```powershell
-./scripts/Copy-ToRepos.ps1
-# Standardmål: D:\work\repos\chagi-web (måste vara en ny katalog)
-```
-
-Skriptet kopierar, skriver inte över ett befintligt mål och lämnar originalet kvar.
-Byggartefakter, signering, Git-interna filer och lokal QA följer inte med.
+`D:\work\repos\chagi-web` är en ren Git-checkout som spårar
+`f96nini/chagi-web`. Den äldre arbetskopian under `D:\work\tkd-appen\chagi-web`
+finns kvar. Projektet har inga absoluta källreferenser till den äldre kopian.

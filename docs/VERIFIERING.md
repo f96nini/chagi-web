@@ -1,10 +1,10 @@
 # Leverans och verifiering – 2026-10-20
 
-Projekt: `D:\work\tkd-appen\chagi-web`. Önskad slutplacering är
-`D:\work\repos\chagi-web`, men sessionen har inte skrivrättighet där.
-`scripts/Copy-ToRepos.ps1` gör en ren källkodskopia när det körs i en session med
-åtkomst till målkatalogen. Inga projekt refererar med absoluta sökvägar till den
-ursprungliga appen. Originalets `git status --short` är fortfarande tomt.
+Projekt: `D:\work\repos\chagi-web`, en ren checkout av
+<https://github.com/f96nini/chagi-web>. Webbplats:
+<https://f96nini.github.io/chagi-web/>. Den äldre arbetskopian finns kvar under
+`D:\work\tkd-appen\chagi-web`. Inga projekt refererar med absoluta sökvägar till
+den ursprungliga appen; dess arbetskopia har inte ändrats.
 
 ## Faser
 
@@ -12,10 +12,10 @@ ursprungliga appen. Originalets `git status --short` är fortfarande tomt.
 | --- | --- | --- |
 | 0, inventering | `docs/INVENTERING.md` | Konkreta källfiler, datakontrakt och adapterplan dokumenterades före extrahering. |
 | 1, delad kod | `Chagi.Core/Models`, `Logic`, `Storage`, `WebConnection`; appens repository/cache-adaptrar, projektreferens, XAML-assemblyreferenser och Preferences-adapter | Gemensam parser och oförändrade rankingregler. Android- och Windows-byggen godkända. Befintliga regressionskontroller refererar nu Core. |
-| 2, webb | `Chagi.Web/Pages`, `Components`, `Layout`, `Services`, `wwwroot`; `Chagi.Web.Checks` | Alla MVP-vyer, profiler och klassresultat implementerade. Riktiga Razor-komponenter kompilerar och renderas i 12 kontroller. Full WASM-start och visuell granskning återstår. |
-| 3, data | `PublishedResultsClient`, `BrowserSnapshotStore`, `cache.js`, `Chagi.Tests` | Gemensamt manifest, SHA-256, LF/CRLF, selektiv HTTP-hämtning, 15-minutersintervall, atomisk IndexedDB-cache och offline-status. 29 data-/rankingkontroller godkända. Verklig lokal publiceringskopia verifierad separat. Live-CORS/headers återstår. |
+| 2, webb | `Chagi.Web/Pages`, `Components`, `Layout`, `Services`, `wwwroot`; `Chagi.Web.Checks` | Alla MVP-vyer, profiler och klassresultat implementerade. Riktiga Razor-komponenter kompilerar och renderas i 12 kontroller. Release-WASM byggdes och startade på den publika sajten; startsida, ranking och tävlingsdetalj kontrollerades i mobilbredd. |
+| 3, data | `PublishedResultsClient`, `BrowserSnapshotStore`, `cache.js`, `Chagi.Tests` | Gemensamt manifest, SHA-256, LF/CRLF, selektiv HTTP-hämtning, 15-minutersintervall, atomisk IndexedDB-cache och offline-status. 29 data-/rankingkontroller godkända. Publicerad datakälla svarade HTTP 200 med `Access-Control-Allow-Origin: *`; startsida och ranking läste live-data. |
 | 4, bilder | `PublicImages`, `Avatar`, `ClubBadge`, publik konfiguration | Godkända HTTPS-URL:er, lazy loading, stabila mått och fallback även vid bildfel. Inga personbilder eller klubblogotyper har nypublicerats. Faktiska bilder kräver rättighetsunderlag och konfiguration. |
-| 5, publicering | `.github/workflows/pages.yml`, `prepare-pages.mjs`, `404.html`, README; anpassat befintligt Android-releaseworkflow | Bygg-/deploy-workflow implementerat. Root-, repo- och alternativ base-adress klarar routingkontroller. GitHub-repository, Pages-inställning och verklig deploy har inte skapats/körts i denna session. |
+| 5, publicering | `.github/workflows/pages.yml`, `prepare-pages.mjs`, `404.html`, README; anpassat befintligt Android-releaseworkflow | Root-, repo- och alternativ base-adress klarar routingkontroller. Repositoryt `f96nini/chagi-web` skapades; Pages använder Actions. Första workflow-körningen [39452495326](https://github.com/f96nini/chagi-web/actions/runs/39452495326) byggde och distribuerade med `success`. Startsida och WebAssembly-resurs svarade HTTP 200; omladdning av `/ranking` fungerade i webbläsaren. |
 
 ## Utförda kontroller
 
@@ -33,8 +33,12 @@ dotnet run --project Chagi.Tests/Chagi.Tests.csproj -- --published-dir D:/work/r
 
 Den lokala publiceringskopian, version `2026-10-19`, innehåller **22 resultatfiler,
 22 tävlingar och 1 184 fighters**. Samtliga manifestfiler klarade kontrollsummorna;
-resultat och match-JSON lästes med konsekventa poängsummor. Detta bevisar inte att
-den aktuella nätpubliceringen har samma innehåll eller rätt CORS-headers.
+resultat och match-JSON lästes med konsekventa poängsummor. Den publika sajten visade
+dataversion `2026-10-19`, 22 tävlingar och rankingresultat från samma nätkälla.
+
+`dotnet publish Chagi.Web/Chagi.Web.csproj -c Release -o artifacts/site` avslutades
+med exitkod 0. Det lokala bygget gjordes utan valfri `wasm-tools`-optimering.
+GitHub Actions körde tester, publicerade WebAssembly och distribuerade sajten.
 
 Följande fullständiga Debug-byggen avslutades med exitkod 0:
 
@@ -49,31 +53,13 @@ okompilerade bindningar i appens befintliga vyer. Androids första kompilering g
 samma varningstyper; det avslutande inkrementella Androidbygget hade 0 varningar
 och 0 fel. Inga kontroller på fysisk Android-enhet eller av MAUI:s UI gjordes.
 
-## Ej verifierat
+## Kvarvarande QA
 
-- NuGet och GitHub Pages gick inte att nå: DNS-fel för `api.nuget.org` respektive
-  `f96nini.github.io`. WebAssembly-paketen och browser-wasm-runtime saknas i den
-  lokala paketlagringen. Därför har det riktiga WebAssembly-projektet inte kunnat
-  återställas, byggas eller publiceras här. `Chagi.Web.Checks` kompilerar/rendrar
-  Razor och webbtjänster med installerade .NET-referenser, men verifierar inte
-  WebAssembly-hostens `Program.cs`, browser-HTTP-adaptern, trimning eller startup.
-- Visuell webbläsarkontroll nekades av behörighetskontrollen när den lokala
-  förhandsvisningen skulle öppnas. Inget annat webbläsarverktyg användes för att
-  kringgå detta. CSS-layout på mobil/desktop, tangentbordsinteraktion och riktiga
-  IndexedDB-/bildfelshändelser behöver kontrolleras i webbläsaren.
-- Faktisk Pages-deploy, live-CORS, cacheheaders och uppdatering efter deploy återstår.
-  Workflow kör ett riktigt Release-publish och stoppar deploy om det inte lyckas.
-
-## Första körningen med nätåtkomst
-
-1. Kopiera till önskad katalog, återställ och kör `Chagi.Web` enligt README.
-2. Kontrollera alla fyra huvudvyer, sökning/filter, profiler, bildfallback och
-   tangentbord på mobil- och desktopbredder.
-3. Ladda ett fullständigt arkiv, bryt dataanslutningen och kontrollera sparad-data-
-   meddelandet. Uppdatera samma datakälla och kontrollera selektiva hämtningar.
-4. Kontrollera publiceringsrättigheter och rättslig grund innan extern publicering.
-5. Pusha till avsett repository, välj Actions som Pages-källa och verifiera både
-   startsida och omladdning av en profil-/tävlingsdirektlänk under rätt base-adress.
-
-Den tillfälliga lokala QA-servern har stoppats. Den är inte en del av webbprojektet
-och ingår inte i en källkodskopia med kopieringsskriptet.
+- Desktopbredd, tangentbordsnavigering, sök- och filterkombinationer samt
+  felande bild-URL:er har inte granskats fullt ut i webbläsare.
+- IndexedDB-cache vid avbruten dataanslutning och selektiva hämtningar efter
+  uppdatering av manifestet har täckning i kodkontroller men ingen live-simulering.
+- GitHub Pages cacheheaders och klientuppdatering efter en senare deploy har inte
+  verifierats. Direktlänkar fungerar i webbläsare efter omladdning, men Pages ger
+  först ett HTTP 404-svar innan `404.html` återställer routen.
+- MAUI-appen har byggts för Android och Windows men inte körts på fysisk enhet.
