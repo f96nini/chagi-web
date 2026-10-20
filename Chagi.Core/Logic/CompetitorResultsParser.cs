@@ -1079,6 +1079,9 @@ namespace ITF_Taekwondo_Gradering.Logic
                 return string.Empty;
 
             var trimmed = value.Trim();
+            if (trimmed.StartsWith("Plats:", StringComparison.OrdinalIgnoreCase))
+                return ToTitleWords(trimmed["Plats:".Length..].Trim());
+
             var postalCodeMatch = Regex.Match(trimmed, @"\b\d{3}\s?\d{2}\s+(?<city>.+)$");
             if (postalCodeMatch.Success)
             {

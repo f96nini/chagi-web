@@ -75,6 +75,8 @@ Check(removed.Competitions.Count == 3 && !store.Snapshot!.Files.ContainsKey("res
 var original = CompetitorResultsParser.Parse([("2026-04-01_fixture.txt", "Mönster Pojkar Kadetter VIT\n1. Test Alpha - Frölunda")]).Single();
 var importedAgain = CompetitorResultsParser.Parse([("2026-04-01_fixture.txt", "Mönster Pojkar Kadetter VIT\n1. Test Alpha - Frölunda")]).Single();
 Check(original.Id != importedAgain.Id && ResultLinks.FighterId(original) == ResultLinks.FighterId(importedAgain), "Fighter deep links survive regenerated mobile IDs");
+var located = CompetitorResultsParser.Parse([("2024-10-19_impact_cup_24.txt", "Impact Cup 24\n2024-10-19 13:00\nPlats: Stockholm\nRegional tävling!\nMönster Pojkar Yngre Miniorer VIT\n1. Test Alpha - Billdal")]).Single();
+Check(located.Results.Single().CompetitionCity == "Stockholm", "A labelled place is shown as the competition city");
 Check(!ResultLinks.FighterId(original).Any(c => c is '/' or '+' or '='), "Public fighter IDs are safe route segments");
 var index = CompetitionMatchParser.ParseIndex("[{\"competitionDate\":\"2026-04-01\",\"competitionName\":\"Fixture\",\"file\":\"fixture.json\"}]");
 Check(index.Single().CompetitionDate == new DateTime(2026, 4, 1), "The actual camelCase JSON match contract deserializes");
