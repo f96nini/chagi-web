@@ -1,0 +1,65 @@
+@page "/klubbar/{Id}"
+@inherits ResultsPageBase
+@inject PublicImages Images
+<PageTitle>@(Club?.Name ?? "Klubb") · Chagi</PageTitle>
+<a class="back-link" href="klubbar">← Alla klubbar</a>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Club is { } club && Data != null)
+{
+    var snapshot = ClubDetailsService.Build(Data.Fighters, club.Id, gender, discipline, EnabledClasses);
+    <div class="club-profile-header"><Avatar Name="@club.Name" Url="@Images.Club(club.Id)" Alt="@($"Klubblogotyp för {club.Name}")" Size="large" /><div class="page-intro"><span class="eyebrow">KLUBBPROFIL · PUBLICERADE RESULTAT</span><h1>@club.Name<span class="accent">.</span></h1><p>@club.ParticipationText</p></div></div>
+    <div class="profile-stats club-stats"><div><span>Medaljpoäng</span><strong>@club.TotalPoints</strong></div><div><span>Medaljer</span><Medals Gold="club.GoldCount" Silver="club.SilverCount" Bronze="club.BronzeCount" /></div><div><span>Fighters</span><strong>@club.FighterCount</strong></div><div><span>Tävlingar</span><strong>@club.CompetitionCount</strong></div></div>
+    <div class="filter-bar club-detail-filters">
+        <label>Kön<select @bind="gender"><option value="@GenderFilterMode.All">Alla</option><option value="@GenderFilterMode.Male">Herrar / pojkar</option><option value="@GenderFilterMode.Female">Damer / flickor</option></select></label>
+        <label>Gren<select @bind="discipline">@foreach (var d in Enum.GetValues<CompetitionDisciplineE>()) { <option value="@d">@d</option> }</select></label>
+        <label>Åldersklass<select @bind="age"><option value="">Alla klasser</option>@foreach (var a in Enum.GetValues<RankingAgeClassE>()) { <option value="@a">@RankingClassFilterService.ToDisplayName(a)</option> }</select></label>
+    </div>
+    <div class="club-tabs" aria-label="Klubbresultat"><button type="button" aria-pressed="@(tab == "competitions")" class="@(tab == "competitions" ? "active" : "")" @onclick="ShowCompetitions">Tävlingar <span>@snapshot.Competitions.Count</span></button><button type="button" aria-pressed="@(tab == "fighters")" class="@(tab == "fighters" ? "active" : "")" @onclick="ShowFighters">Fighters <span>@snapshot.Fighters.Count</span></button></div>
+    @if (tab == "competitions")
+    {
+        <div class="section-heading compact"><h2>Klubbens tävlingar</h2><label class="inline-select">Sortera<select @bind="competitionSort"><option value="@ClubCompetitionSortMode.Date">Datum</option><option value="@ClubCompetitionSortMode.MedalPoints">Medaljpoäng</option></select></label></div>
+        @if (snapshot.Competitions.Count == 0) { <div class="empty-state"><h2>Inga tävlingar för filtren</h2><p>Välj en annan gren, åldersklass eller kön.</p></div> }
+        else
+        {
+            <div class="club-results-list">
+                @foreach (var item in ClubDetailsService.SortCompetitions(snapshot.Competitions, competitionSort))
+                {
+                    var competition = Data.Competitions.FirstOrDefault(c => c.CompetitionDate.Date == item.Date.Date && c.CompetitionName == item.Name && c.CompetitionCity == item.City);
+                    <a class="club-result-row" href="@(competition == null ? $"tavlingar" : $"klubbar/{Uri.EscapeDataString(club.Id)}/tavlingar/{ResultLinks.CompetitionId(competition)}")"><span><strong>@item.Name</strong><small>@CompetitionMeta(item)</small></span><Medals Gold="item.GoldCount" Silver="item.SilverCount" Bronze="item.BronzeCount" /><span class="club-result-points">@item.TotalPoints p</span><span aria-hidden="true">↗</span></a>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="section-heading compact"><h2>Klubbens fighters</h2><span class="muted">Sorterade efter medaljpoäng</span></div>
+        @if (snapshot.Fighters.Count == 0) { <div class="empty-state"><h2>Inga fighters för filtren</h2><p>Välj en annan gren, åldersklass eller kön.</p></div> }
+        else
+        {
+            <div class="table-scroll"><table><caption class="sr-only">Fighters i @club.Name</caption><thead><tr><th scope="col">Plats</th><th scope="col">Fighter</th><th scope="col">Medaljer</th><th scope="col" class="number">Poäng</th></tr></thead><tbody>
+                @foreach (var fighter in snapshot.Fighters)
+                {
+                    <tr><td class="rank-number">@fighter.PositionLabel</td><td><a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter.Competitor)}")">@fighter.FullName</a><small class="table-small">@(fighter.Competitor.CurrentAgeClass.HasValue ? RankingClassFilterService.ToDisplayName(fighter.Competitor.CurrentAgeClass.Value) : "Klass ej angiven")</small></td><td><Medals Gold="fighter.GoldCount" Silver="fighter.SilverCount" Bronze="fighter.BronzeCount" /></td><td class="number points">@fighter.Score</td></tr>
+                }
+            </tbody></table></div>
+        }
+    }
+    <p class="source-note">Filtren påverkar listorna. Översiktens totalsiffror visar klubbens samtliga publicerade resultat.</p>
+}
+else if (!Busy && Data != null) { <div class="empty-state"><h1>Klubben finns inte</h1><p>Sök klubben i listan. Namnet kan ha uppdaterats.</p></div> }
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    GenderFilterMode gender = GenderFilterMode.All;
+    CompetitionDisciplineE discipline;
+    string age = "", tab = "competitions";
+    ClubCompetitionSortMode competitionSort = ClubCompetitionSortMode.Date;
+    ClubSummaryEntry? Club => Data == null ? null : ClubStatisticsService.BuildClubSummaries(Data.Fighters).FirstOrDefault(c => c.Id == Uri.UnescapeDataString(Id));
+    IReadOnlyCollection<RankingAgeClassE> EnabledClasses => age == "" ? Enum.GetValues<RankingAgeClassE>() : Enum.TryParse<RankingAgeClassE>(age, out var selected) ? [selected] : Enum.GetValues<RankingAgeClassE>();
+    void ShowCompetitions() => tab = "competitions";
+    void ShowFighters() => tab = "fighters";
+    static string CompetitionMeta(ClubCompetitionEntry item) => string.Join(" · ", new[]
+    {
+        item.Date.ToString("d MMM yyyy"), item.City,
+        $"{item.FighterCount} {(item.FighterCount == 1 ? "fighter" : "fighters")}"
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+}

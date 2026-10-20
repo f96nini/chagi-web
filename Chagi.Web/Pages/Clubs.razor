@@ -1,0 +1,61 @@
+@page "/klubbar"
+@inherits ResultsPageBase
+@inject PublicImages Images
+<PageTitle>Klubbar · Chagi</PageTitle>
+<div class="page-intro"><span class="eyebrow">KLUBBARNA BAKOM RESULTATEN</span><h1>Klubbar<span class="accent">.</span></h1><p>Hitta din klubb och se medaljer, fighters och tävlingar i de publicerade resultaten.</p></div>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Data != null)
+{
+    <div class="filter-bar club-filters">
+        <label class="search-field"><span class="sr-only">Sök klubb</span><span aria-hidden="true">⌕</span><input type="search" placeholder="Sök klubb…" @bind="search" @bind:event="oninput" /></label>
+        <label>Region<select @bind="region"><option value="">Alla regioner</option>@foreach (var r in ClubCatalogService.GetRegions()) { <option value="@r.Id">@r.Name</option> }<option value="other">Övriga orter</option></select></label>
+        <label>Sortera<select @bind="sort"><option value="points">Medaljpoäng</option><option value="fighters">Antal fighters</option><option value="name">Namn A–Ö</option></select></label>
+    </div>
+    <div class="section-heading compact"><h2>Alla klubbar <span class="count-pill">@Filtered.Count</span></h2><span class="muted">@Data.Competitions.Count publicerade tävlingar</span></div>
+    @if (Filtered.Count == 0)
+    {
+        <div class="empty-state"><h2>Inga klubbar hittades</h2><p>Prova ett annat namn eller en annan region.</p><button class="text-button" @onclick="Clear">Rensa filter ↻</button></div>
+    }
+    else
+    {
+        <div class="club-grid">
+            @foreach (var item in Filtered)
+            {
+                <a class="club-card" href="@($"klubbar/{Uri.EscapeDataString(item.Id)}")" @key="item.Id">
+                    <span class="club-card-rank">@item.RankLabel</span>
+                    <Avatar Name="@item.Name" Url="@Images.Club(item.Id)" Alt="@($"Klubblogotyp för {item.Name}")" Size="club" />
+                    <span class="club-card-main"><strong>@item.Name</strong><small>@item.ParticipationText</small><span class="club-card-medals"><Medals Gold="item.GoldCount" Silver="item.SilverCount" Bronze="item.BronzeCount" /></span></span>
+                    <span class="club-card-score"><strong>@item.TotalPoints</strong><small>medaljpoäng</small></span>
+                    <span class="club-card-arrow" aria-hidden="true">↗</span>
+                </a>
+            }
+        </div>
+    }
+    <p class="source-note">Klubbkatalogen kommer från Chagi-appen. Poäng och deltagande avser endast tävlingar med publicerade resultat.</p>
+}
+@code {
+    string search = "", region = "", sort = "points";
+    List<ClubSummaryEntry> Filtered
+    {
+        get
+        {
+            if (Data == null) return [];
+            var clubs = ClubStatisticsService.BuildClubSummaries(Data.Fighters)
+                .Where(c => c.Name.Contains(search, StringComparison.OrdinalIgnoreCase) && InRegion(c));
+            return (sort switch
+            {
+                "name" => clubs.OrderBy(c => c.Name, SwedishNameComparer.Instance),
+                "fighters" => clubs.OrderByDescending(c => c.FighterCount).ThenByDescending(c => c.TotalPoints).ThenBy(c => c.Name, SwedishNameComparer.Instance),
+                _ => clubs.OrderByDescending(c => c.TotalPoints).ThenBy(c => c.Rank).ThenBy(c => c.Name, SwedishNameComparer.Instance)
+            }).ToList();
+        }
+    }
+    bool InRegion(ClubSummaryEntry summary)
+    {
+        if (region == "") return true;
+        var club = ClubCatalogService.GetAllClubs().FirstOrDefault(c => c.Id == summary.Id);
+        var city = ClubCatalogService.GetAllCities().FirstOrDefault(c => c.Id == club?.CityId);
+        return region == "other" ? city?.RegionId == null : city?.RegionId == region;
+    }
+    void Clear() { search = ""; region = ""; sort = "points"; }
+}

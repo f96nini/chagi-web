@@ -7,6 +7,7 @@ using Chagi.Core.Presentation;
 using Chagi.Web.Components;
 using Chagi.Web.Layout;
 using Chagi.Web.Services;
+using ITF_Taekwondo_Gradering.Logic;
 using ITF_Taekwondo_Gradering.WebConnection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -45,6 +46,15 @@ var competition = await Render<Chagi.Web.Pages.CompetitionDetails>(new() { ["Id"
 Check(competition.Contains("<details") && competition.Contains("Test Alpha") && competition.Contains("Klassresultat"), "Competition details render the actual divisions and placements");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
 Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter"), "Ranking renders separate gender/class groups from the shared calculator");
+var clubs = await Render<Chagi.Web.Pages.Clubs>();
+var clubId = ClubCatalogService.ResolveClub("Testklubb")!.Id;
+Check(clubs.Contains("Testklubb") && clubs.Contains("klubbar/" + Uri.EscapeDataString(clubId)) && clubs.Contains("Alla klubbar"), "Club catalog includes a results-only club with a working details link");
+var clubDetails = await Render<Chagi.Web.Pages.ClubDetails>(new() { ["Id"] = clubId });
+Check(clubDetails.Contains("Testklubb") && clubDetails.Contains("Testcup") && clubDetails.Contains("2 fighters") && clubDetails.Contains("Tävlingar"), "Club profile calculates published fighters and competitions");
+var clubCompetition = await Render<Chagi.Web.Pages.ClubCompetition>(new() { ["ClubId"] = clubId, ["CompetitionId"] = ResultLinks.CompetitionId(data.Competitions.First()) });
+Check(clubCompetition.Contains("Test Alpha") && clubCompetition.Contains("Test Beta") && clubCompetition.Contains("Alla resultat"), "Club competition page renders its medallists and full-results link");
+var knownLogo = await Render<ClubBadge>(new() { ["Name"] = "Stockholm Impact" });
+Check(knownLogo.Contains("images/clubs/impact.png") && knownLogo.Contains("klubbar/stockholm-impact"), "Known club badges use app artwork and link to club profiles");
 var filtered = await Render<NoMatchFighters>();
 Check(filtered.Contains("Inga fighters hittades") && !filtered.Contains("Test Alpha"), "A query with no matching fighter renders an explicit empty state");
 var status = await Render<DataStatus>(new() { ["Busy"] = false });
@@ -54,7 +64,7 @@ Check(error.Contains("role=\"alert\"") && error.Contains("Offline test") && erro
 var loading = await Render<DataStatus>(new() { ["Busy"] = true });
 Check(loading.Contains("role=\"status\"") && loading.Contains("Hämtar resultaten"), "Loading exposes an accessible status");
 var layout = await Render<MainLayout>();
-Check(layout.Contains("Hoppa till innehållet") && layout.Contains("aria-label=\"Huvudmeny\"") && layout.Contains("id=\"main\""), "Layout exposes a skip link, named navigation and main content");
+Check(layout.Contains("Hoppa till innehållet") && layout.Contains("aria-label=\"Huvudmeny\"") && layout.Contains("id=\"main\"") && layout.Contains("klubbar"), "Layout exposes a skip link, named navigation and clubs entry");
 Console.WriteLine($"All {count} Razor rendering checks passed.");
 
 sealed class CheckNavigation : NavigationManager

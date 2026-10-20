@@ -1,0 +1,63 @@
+@page "/klubbar/{ClubId}/tavlingar/{CompetitionId}"
+@inherits ResultsPageBase
+@inject PublicImages Images
+<PageTitle>@(Competition?.CompetitionName ?? "Klubbens tävling") · Chagi</PageTitle>
+<a class="back-link" href="@($"klubbar/{Uri.EscapeDataString(Uri.UnescapeDataString(ClubId))}")">← Till klubben</a>
+<DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
+@if (Club is { } club && Competition is { } competition && Data != null)
+{
+    var divisions = Divisions;
+    var medalResults = divisions.SelectMany(division => division.Results).ToList();
+    var gold = medalResults.Count(result => result.Placement == 1);
+    var silver = medalResults.Count(result => result.Placement == 2);
+    var bronze = medalResults.Count(result => result.Placement == 3);
+    <div class="club-profile-header"><Avatar Name="@club.Name" Url="@Images.Club(club.Id)" Alt="@($"Klubblogotyp för {club.Name}")" Size="large" /><div class="page-intro"><span class="eyebrow">KLUBBENS MEDALJER · @competition.CompetitionDate.ToString("d MMM yyyy")</span><h1>@competition.CompetitionName<span class="accent">.</span></h1><p>@club.Name · @competition.CompetitionCity</p></div></div>
+    <div class="filter-bar club-detail-filters"><label>Kön<select @bind="gender"><option value="@GenderFilterMode.All">Alla</option><option value="@GenderFilterMode.Male">Herrar / pojkar</option><option value="@GenderFilterMode.Female">Damer / flickor</option></select></label><label>Gren<select @bind="discipline">@foreach (var d in Enum.GetValues<CompetitionDisciplineE>()) { <option value="@d">@d</option> }</select></label><label>Åldersklass<select @bind="age"><option value="">Alla klasser</option>@foreach (var a in Enum.GetValues<RankingAgeClassE>()) { <option value="@a">@RankingClassFilterService.ToDisplayName(a)</option> }</select></label></div>
+    <div class="club-medal-summary"><Medals Gold="gold" Silver="silver" Bronze="bronze" /><strong>@(gold * 5 + silver * 3 + bronze) medaljpoäng</strong></div>
+    <div class="club-tabs" aria-label="Tävlingsresultat för klubben"><button type="button" aria-pressed="@(tab == "medals")" class="@(tab == "medals" ? "active" : "")" @onclick="ShowMedals">Medaljer</button><button type="button" aria-pressed="@(tab == "leaderboard")" class="@(tab == "leaderboard" ? "active" : "")" @onclick="ShowLeaderboard">Poängliga</button></div>
+    <div class="section-heading compact"><h2>@(tab == "medals" ? $"Medaljer i {club.Name}" : $"Poängliga för {club.Name}")</h2><a class="text-link" href="@($"tavlingar/{CompetitionId}")">Alla resultat <span aria-hidden="true">↗</span></a></div>
+    @if (divisions.Count == 0) { <div class="empty-state"><h2>Inga medaljer för filtren</h2><p>Välj en annan gren, åldersklass eller kön.</p></div> }
+    else if (tab == "medals")
+    {
+    @foreach (var division in divisions)
+    {
+        <details class="division-card"><summary><span><span class="eyebrow">@division.Discipline</span><strong>@division.Division</strong></span><span class="division-count">@division.Results.Count @(division.Results.Count == 1 ? "medalj" : "medaljer") <span aria-hidden="true">＋</span></span></summary><div class="table-scroll"><table><caption class="sr-only">@club.Name i @division.Division</caption><thead><tr><th scope="col">Placering</th><th scope="col">Fighter</th></tr></thead><tbody>
+            @foreach (var result in division.Results)
+            {
+                var fighter = Data.Fighters.FirstOrDefault(f => f.Id == result.CompetitorId);
+                <tr><td><span class="placement placement-@result.Placement">@result.Placement</span></td><td>@if (fighter == null) { @result.CompetitorName } else { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@result.CompetitorName</a> }</td></tr>
+            }
+        </tbody></table></div></details>
+    }
+    }
+    else
+    {
+        <div class="club-leaderboard">
+            @foreach (var group in CompetitionMedalLeaderboardService.BuildGroups(divisions))
+            {
+                <section class="club-leaderboard-group"><div class="club-leaderboard-heading">@if (group.HasTrophy) { <img src="@($"images/trophy-{(group.Position == 1 ? "gold" : group.Position == 2 ? "silver" : "bronze")}.svg")" alt="" width="36" height="36" /> }<div><span class="eyebrow">@(group.HasTitle ? group.Title : $"Plats {group.Position}")</span><strong>@group.PointsLabel</strong></div></div><ul>
+                    @foreach (var entry in group)
+                    {
+                        var fighter = Data.Fighters.FirstOrDefault(f => f.Id == entry.CompetitorId);
+                        <li><span>@if (fighter == null) { @entry.CompetitorName } else { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@entry.CompetitorName</a> }<small>@entry.AgeClassLabel</small></span><strong>@entry.PointsLabel</strong></li>
+                    }
+                </ul></section>
+            }
+        </div>
+    }
+}
+else if (!Busy && Data != null) { <div class="empty-state"><h1>Resultaten finns inte</h1><p>Gå tillbaka till klubben och välj en annan tävling.</p></div> }
+@code {
+    [Parameter] public string ClubId { get; set; } = "";
+    [Parameter] public string CompetitionId { get; set; } = "";
+    GenderFilterMode gender = GenderFilterMode.All;
+    CompetitionDisciplineE discipline;
+    string age = "";
+    string tab = "medals";
+    ClubSummaryEntry? Club => Data == null ? null : ClubStatisticsService.BuildClubSummaries(Data.Fighters).FirstOrDefault(c => c.Id == Uri.UnescapeDataString(ClubId));
+    CompetitionCatalogEntry? Competition => Data?.Competitions.FirstOrDefault(c => ResultLinks.CompetitionId(c) == CompetitionId);
+    IReadOnlyCollection<RankingAgeClassE> EnabledClasses => age == "" ? Enum.GetValues<RankingAgeClassE>() : Enum.TryParse<RankingAgeClassE>(age, out var selected) ? [selected] : Enum.GetValues<RankingAgeClassE>();
+    IReadOnlyList<CompetitionDivisionEntry> Divisions => Club is { } club && Competition is { } competition ? ClubCompetitionMedalsService.BuildDivisions(competition, club.Id, gender, discipline, EnabledClasses) : [];
+    void ShowMedals() => tab = "medals";
+    void ShowLeaderboard() => tab = "leaderboard";
+}

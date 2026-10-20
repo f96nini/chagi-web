@@ -1,7 +1,8 @@
 # Chagi Web
 
 Responsiv, svensk Blazor WebAssembly-webbplats för ITF-taekwondo. Visar tävlingar,
-klassresultat, fighters, tävlingshistorik och filtrerad ranking. Ren statisk hosting;
+klassresultat, fighters, klubbar, klubbmedaljer, klubbens poängliga,
+tävlingshistorik och filtrerad ranking. Ren statisk hosting;
 ingen backend, administration, databas eller inloggning.
 
 Projektet utgår från MAUI-appen `f96nini/ITF-Taekwondo-Gradering`, commit `1df90bb`.
@@ -110,18 +111,20 @@ och kontrollera både startsida och en direktlänk. Startsidan, WebAssembly-resu
 datakällans CORS-headers och omladdning av `/ranking` har verifierats mot den
 publicerade sajten. Uppdatering efter en framtida deploy återstår att verifiera.
 
-## Bilder
+## Bilder och färger
 
-Inga personfoton eller klubblogotyper har kopierats från mobilens resurser till
-webbens publika katalog. Använd `PublicImages:Clubs:<klubb-id>` eller
-`PublicImages:Fighters:<profil-id>` i `appsettings.json` för godkända HTTPS-bilder.
-Klubb-id:n finns i `ClubCatalogService`; fighter-id finns i profilens URL.
-Initialer används som fallback, även om en bild inte kan laddas. Komponenterna
-använder lazy loading, asynkron avkodning och stabila bildmått. Små WebP/AVIF-bilder
-kan ligga på Pages och senare ersättas med objektlagrings-URL:er utan modelländring.
+Webben använder appens blå färgpalett, appikon, bakgrundsgrafik, medaljikoner och
+klubblogotyper från `Chagi.App`/MAUI-resurserna. De publicerade kopiorna ligger i
+`Chagi.Web/wwwroot/images`. Katalogklubbar utan logotyp använder appens generiska
+klubbsymbol. Ingen personbild har kopierats. Använd
+`PublicImages:Clubs:<klubb-id>` eller `PublicImages:Fighters:<profil-id>` i
+`appsettings.json` för att ersätta en bild med en godkänd HTTPS-URL. Klubb-id:n
+finns i `ClubCatalogService`; fighter-id finns i profilens URL. Fighters utan
+personbild visas med initialer. Bilderna har lazy loading, asynkron avkodning och
+stabila bildmått.
 
 ## Projektkopia på Heisenberg
 
-`D:\work\repos\chagi-web` är en ren Git-checkout som spårar
+`D:\work\repos\chagi-web` är en Git-checkout som spårar
 `f96nini/chagi-web`. Den äldre arbetskopian under `D:\work\tkd-appen\chagi-web`
 finns kvar. Projektet har inga absoluta källreferenser till den äldre kopian.
