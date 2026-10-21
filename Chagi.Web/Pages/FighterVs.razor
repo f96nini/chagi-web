@@ -54,7 +54,7 @@ else if (!Busy && Data != null) { <div class="empty-state"><h1>Profilen finns in
     ResultsData? computedFor;
     string? computedId;
     IReadOnlyList<HeadToHeadSection> cachedSections = [];
-    Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.FighterId(f) == Id);
+    Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.MatchesFighterId(f, Id));
     IReadOnlyList<HeadToHeadSection> Sections
     {
         get

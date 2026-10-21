@@ -75,6 +75,9 @@ Check(removed.Competitions.Count == 3 && !store.Snapshot!.Files.ContainsKey("res
 var original = CompetitorResultsParser.Parse([("2026-04-01_fixture.txt", "Mönster Pojkar Kadetter VIT\n1. Test Alpha - Frölunda")]).Single();
 var importedAgain = CompetitorResultsParser.Parse([("2026-04-01_fixture.txt", "Mönster Pojkar Kadetter VIT\n1. Test Alpha - Frölunda")]).Single();
 Check(original.Id != importedAgain.Id && ResultLinks.FighterId(original) == ResultLinks.FighterId(importedAgain), "Fighter deep links survive regenerated mobile IDs");
+Check(ResultLinks.FighterId(original).StartsWith("test-alpha--frolunda-"), "Fighter analytics paths show name and club");
+var previousFighterId = Convert.ToBase64String(Encoding.UTF8.GetBytes(original.FavoriteKey)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+Check(ResultLinks.MatchesFighterId(original, previousFighterId), "Existing fighter deep links remain valid");
 var located = CompetitorResultsParser.Parse([("2024-10-19_impact_cup_24.txt", "Impact Cup 24\n2024-10-19 13:00\nPlats: Stockholm\nRegional tävling!\nMönster Pojkar Yngre Miniorer VIT\n1. Test Alpha - Billdal")]).Single();
 Check(located.Results.Single().CompetitionCity == "Stockholm", "A labelled place is shown as the competition city");
 Check(!ResultLinks.FighterId(original).Any(c => c is '/' or '+' or '='), "Public fighter IDs are safe route segments");

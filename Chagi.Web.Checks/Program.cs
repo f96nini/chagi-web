@@ -43,6 +43,9 @@ var id = ResultLinks.FighterId(data.Fighters.First());
 Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile links");
 var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
 Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && profile.Contains("VS · Inbördes möten") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and link to VS");
+var previousId = Convert.ToBase64String(Encoding.UTF8.GetBytes(data.Fighters.First().FavoriteKey)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+var previousProfile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = previousId });
+Check(previousProfile.Contains("Test Alpha") && !previousProfile.Contains("Profilen finns inte"), "Previously published fighter links still resolve");
 Check(profile.Contains("Badges") && profile.Contains("Klubblogotyp för Testklubb") && profile.Contains("images/club-placeholder.svg") && !profile.Contains("Porträtt av Test Alpha"), "Fighter profile offers Badges and uses the club logo in its header");
 Check(profile.Contains("Senaste bältesklass:") && profile.Contains("belt-white") && profile.Contains(">Vit</span>") && !profile.Contains("Kup-"), "Fighter profile shows a belt color rather than an inferred Kup grade");
 var colorFixture = new Competitor { Results = [

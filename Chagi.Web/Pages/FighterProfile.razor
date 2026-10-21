@@ -56,7 +56,7 @@ else if (!Busy && Data != null) { <div class="empty-state"><h1>Profilen finns in
     ResultsData? badgeData;
     Guid? badgeFighterId;
     IReadOnlyList<CompetitorBadgeAward> badgeAwards = [];
-    Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.FighterId(f) == Id);
+    Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.MatchesFighterId(f, Id));
     List<CompetitionResult> Results => Fighter?.Results.Where(r => discipline == CompetitionDisciplineE.Alla || r.Discipline == discipline).OrderByDescending(r => r.CompetitionDate).ThenBy(r => r.Discipline).ToList() ?? [];
     IReadOnlyList<CompetitorBadgeAward> Badges {
         get {

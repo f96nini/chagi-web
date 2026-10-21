@@ -86,6 +86,13 @@ Profiler använder stabila namn/klubbnycklar i URL:er eftersom appens Guid-ID:n
 genereras vid import. Appens speciella tävlings-medaljtopplista använder fortsatt
 sin egna befintliga täta poänggruppering; dess regler ändras inte av webbens Poängliga.
 
+Webbens fighterlänkar använder läsbara namn och klubbar följt av ett stabilt
+kontrollvärde. Tidigare Base64-kodade fighterlänkar fortsätter att fungera.
+Cloudflare Web Analytics är manuellt inbäddad i `Chagi.Web/wwwroot/index.html`.
+Den mäter sidvägar, vilket även omfattar namn och klubb i fighterprofilernas
+adresser. Cloudflares automatiska SPA-mätning används; ingen egen
+sidvisningsbeacon är implementerad.
+
 ## GitHub Pages
 
 Webbplatsen är publicerad på <https://f96nini.github.io/chagi-web/> från
