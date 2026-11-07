@@ -17,7 +17,7 @@ namespace ITF_Taekwondo_Gradering.Logic
         static readonly string StorageFileName = "competitors.v11.json";
         static readonly string StorageMetadataFileName = "competitors.v11.metadata.json";
         static readonly string FavoritesStorageKey = "favorite_competitors.v1";
-        static readonly string CacheBuildVersion = "2026-10-17-specific-belt-v11";
+        static readonly string CacheBuildVersion = "2026-11-07-gnesta-rename-v12";
         static HashSet<string>? _favoriteKeys;
         static int _changeVersion;
         static readonly JsonSerializerOptions CacheJsonOptions = CreateCacheJsonOptions();

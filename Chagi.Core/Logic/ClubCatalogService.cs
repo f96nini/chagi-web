@@ -58,7 +58,7 @@ public static class ClubCatalogService
         new("eskilstuna", "Eskilstuna", "eskilstuna", "eskilstuna.png", ["Eskilstuna"]),
         new("floda", "Floda", "floda", null, ["Floda"]),
         new("frolunda", "Frölunda", "frolunda", "frolunda.png", ["Frölunda", "Frolunda"]),
-        new("gnesta", "Gnesta", "gnesta", "gnesta.png", ["Gnesta"]),
+        new("gnesta", "Team FF TKD", "gnesta", "gnesta.png", ["Team FF TKD", "Gnesta"]),
         new("goteborg-fighter", "Göteborg Fighter", "goteborg", "goteborgfighter.jpg", ["Göteborg Fighter", "Goteborg Fighter"]),
         new("goteborg-phoenix", "Göteborg Phoenix", "goteborg", null, ["Göteborg Phoenix", "Goteborg Phoenix"]),
         new("goteborg-gta", "Göteborg GTA", "goteborg", "goteborggta.jpg", ["Göteborg GTA", "Goteborg GTA", "GTA"]),
@@ -90,8 +90,10 @@ public static class ClubCatalogService
         new("tyreso", "Tyresö", "tyreso", "tyreso.png", ["Tyresö", "Tyreso"])
     ];
 
-    static readonly ClubDefinition RenamedClub = ClubDefinitions.Single(club => club.Id == "gbg-kampsport");
-    static readonly HashSet<string> RenamedClubAliases = RenamedClub.Aliases.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+    static readonly IReadOnlyDictionary<string, string> RenamedClubNames = ClubDefinitions
+        .Where(club => club.Id is "gbg-kampsport" or "gnesta")
+        .SelectMany(club => club.Aliases.Select(alias => new KeyValuePair<string, string>(Normalize(alias), club.Name)))
+        .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
 
     static readonly IReadOnlyDictionary<string, CityDefinition> CityById = CityDefinitions.ToDictionary(city => city.Id);
 
@@ -151,11 +153,12 @@ public static class ClubCatalogService
         };
     }
 
-    // Billdal and the Göteborg names belong to the same club, including historical results.
+    // Historical names retain one club identity across results and match data.
     public static string NormalizeClubName(string clubName)
     {
         // Identity merging requires a registered alias, not the catalog's fuzzy display search.
-        return RenamedClubAliases.Contains(Normalize(clubName)) ? RenamedClub.Name : clubName.Trim();
+        var trimmed = clubName.Trim();
+        return RenamedClubNames.TryGetValue(Normalize(trimmed), out var name) ? name : trimmed;
     }
 
     public static string? NormalizeParticipant(string? participant)

@@ -36,6 +36,16 @@ var before = server.Requests.Count;
 var all = await source.LoadAsync();
 Check(all.Competitions.Count == 4 && server.Requests.Count == before + 1, "Opening the archive downloads only the missing result file");
 Check(all.Fighters.Single(f => f.LastName == "Alpha").Team == "GBG Kampsport", "Web imports retain the mobile club alias normalization");
+var renamedFighter = CompetitorResultsParser.Parse([
+    ("2024-11-01_gnesta.txt", "Historic\n2024-11-01\nGnesta\nMönster Flickor Kadetter GRÖN\n1. Nina Test - Gnesta\n"),
+    ("2026-11-07_team_ff.txt", "Swedish ITF Open\n2026-11-07\nStockholm\nSparring Flickor Kadetter GRÖN\n2. Nina Test - Team FF TKD\n")
+]).Single();
+Check(renamedFighter.Team == "Team FF TKD" && renamedFighter.Results.Count == 2 && renamedFighter.TotalPoints == 8,
+    "Web imports merge historical Gnesta medals with Team FF TKD");
+Check(ClubCatalogService.ResolveClub("Gnesta") is { Id: "gnesta", Name: "Team FF TKD" }
+    && ClubCatalogService.ResolveClub("Team FF TKD")?.Id == "gnesta"
+    && ClubCatalogService.NormalizeClubName("Gnesta Ny förening") == "Gnesta Ny förening",
+    "Web club catalog retains the club ID and only merges exact registered names");
 Check(all.Fighters.Single(f => f.LastName == "Zeta").TotalPoints == 0 && all.Fighters.Single(f => f.LastName == "Echo").TotalPoints == 0, "Participation and fourth place award zero points");
 var ranks = RankingService.BuildAllSections(all.Fighters, true, CompetitionDisciplineE.Alla, CompetitorSortE.TotalPoints).Single().Entries;
 Check(ranks.Select(r => r.Score).SequenceEqual(new[] { 20, 12, 4, 4, 0, 0 }), "The shared ranking orders 5/3/1 scores");
@@ -117,6 +127,9 @@ if (args.Length == 2 && args[0] == "--published-dir")
     var realFighters = CompetitorResultsParser.Parse(textFiles, history);
     var realCompetitions = CompetitionCatalogService.BuildCatalog(realFighters);
     Check(realFighters.Count > 0 && realCompetitions.Count > 0 && realFighters.All(f => f.TotalPoints == f.Results.Sum(r => r.PointsAwarded)), "The actual local published text and match JSON parse with consistent fighter totals");
+    Check(realFighters.All(f => f.Team != "Gnesta")
+        && realFighters.Any(f => f.Team == "Team FF TKD" && f.Results.Select(r => r.CompetitionDate.Year).Distinct().Count() > 1),
+        "Published historical Gnesta results and current Team FF TKD results merge into one club identity");
     Console.WriteLine($"Published snapshot {manifest.Version}: {textFiles.Count} result files, {realCompetitions.Count} competitions, {realFighters.Count} fighters.");
 }
 Console.WriteLine($"All {count} shared/web data checks passed.");
