@@ -8,7 +8,8 @@
     var individual = matches.All(match => match.IsIndividualAttempt);
     <div class="page-intro"><span class="eyebrow">MATCHDETALJER · @competition.CompetitionDate.ToString("d MMMM yyyy")</span><h1>@matches[0].Category<span class="accent">.</span></h1><p>@competition.CompetitionName · @competition.CompetitionCity</p></div>
     <div class="match-count"><strong>@matches.Count @(individual ? matches.Count == 1 ? "deltagarstart" : "deltagarstarter" : matches.Count == 1 ? "möte" : "möten")</strong></div>
-    @if (individual) { <p class="filter-explanation">Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan.</p> }
+    @if (individual && matches.Any(match => match.HasIndividualResults)) { <p class="filter-explanation">Registrerade poäng och försök visas nedan. Medaljplaceringarna finns i resultatlistan.</p> }
+    else if (individual) { <p class="filter-explanation">Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan.</p> }
     <div class="match-list">
         @foreach (var match in matches)
         {

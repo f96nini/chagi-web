@@ -9,7 +9,17 @@
         }
         else if (!Match.IsIndividualAttempt) { <p class="match-missing">Ingen motståndare angiven i underlaget.</p> }
     </div>
-    @if (!RedWinner && !BlueWinner) { <p class="match-outcome">@Match.Outcome</p> }
+    @if (Match.HasIndividualResults)
+    {
+        <div class="individual-result-summary"><strong>Registrerat resultat: @DivisionMatch.FormatScore(Match.RedPoints) poäng</strong>@if (Match.HighestClearedHeightCm is { } height) { <span>Högsta klarade höjd: @DivisionMatch.FormatScore(height) cm</span> }</div>
+        <ol class="individual-scores">
+            @foreach (var score in IndividualScores)
+            {
+                <li><span>@ScoreLabel(score)</span><strong>@ScoreValue(score)</strong></li>
+            }
+        </ol>
+    }
+    @if (!Match.IsIndividualAttempt && !RedWinner && !BlueWinner) { <p class="match-outcome">@Match.Outcome</p> }
 </article>
 @code {
     [Parameter, EditorRequired] public DivisionMatch Match { get; set; } = null!;
@@ -21,6 +31,13 @@
         : !string.IsNullOrWhiteSpace(Match.Winner) && Match.Winner == participant);
     bool RedWinner => IsWinner(Match.RedId, Match.RedParticipant);
     bool BlueWinner => Match.HasBlueParticipant && IsWinner(Match.BlueId, Match.BlueParticipant);
+    IEnumerable<IndividualTechniqueScore> IndividualScores => Match.IndividualScores.Where(score => score.Eligible && score.Points.HasValue);
+    string ScoreLabel(IndividualTechniqueScore score) => Match.Discipline == "SPEC_TECH" && score.HeightCm is { } height
+        ? $"Försök {score.AttemptNumber ?? score.TechniqueId} · {DivisionMatch.FormatScore(height)} cm"
+        : $"Försök {score.AttemptNumber ?? score.TechniqueId}";
+    string ScoreValue(IndividualTechniqueScore score) => Match.Discipline == "SPEC_TECH" && score.Cleared.HasValue
+        ? score.Cleared.Value ? "Klarad" : "Ej klarad"
+        : $"{DivisionMatch.FormatScore(score.Points)} poäng";
     string ExtraMatchLabel => Matches.FirstOrDefault(item => item.MatchId == Match.ExtraMatchId) is { } original
         ? $"Extramatch till match {original.MatchNumber}" : "Extramatch";
     List<string> Metadata

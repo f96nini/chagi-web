@@ -76,6 +76,21 @@ Check(ResultLinks.DivisionId(" mönster pojkar kadetter vit ") == ResultLinks.Di
 var unfinished = new DivisionMatch { MatchNumber = 2, Finished = 0, RedId = 1, BlueId = 2, RedParticipant = "Test Alpha - Testklubb", BlueParticipant = "Test Gamma - Testklubb", WinnerId = 1 };
 var unfinishedCard = await Render<MatchCard>(new() { ["Match"] = unfinished, ["Matches"] = new[] { unfinished }, ["Fighters"] = data.Fighters });
 Check(unfinishedCard.Contains("Ej avslutad") && !unfinishedCard.Contains("alt=\"Vinnare\""), "Unfinished match details never mark a winner");
+var spec = CompetitionMatchParser.DeserializeMatches("""
+    [{"category":"Spec. Pojkar Miniorer VIT/GUL","discipline":"SPEC_TECH","matchId":42,"matchNumber":1,"finished":1,"redId":1,"redParticipant":"Test Alpha - Testklubb","redPoints":1,"individualScores":[{"techniqueId":1,"attemptNumber":1,"points":1,"cleared":true,"eligible":true},{"techniqueId":2,"attemptNumber":2,"heightCm":160,"points":1,"cleared":true,"eligible":true},{"techniqueId":3,"heightCm":170,"points":0,"cleared":false,"eligible":true},{"techniqueId":4,"heightCm":180,"points":null,"eligible":false}],"highestClearedHeightCm":160}]
+    """).Single();
+Check(spec.IsIndividualAttempt && spec.HasIndividualResults && !spec.HasDetailedData && spec.IndividualScores.Count == 4,
+    "Published spec attempts deserialize and qualify as individual match details");
+var specCard = await Render<MatchCard>(new() { ["Match"] = spec, ["Matches"] = new[] { spec }, ["Fighters"] = data.Fighters });
+Check(specCard.Contains("Start 1") && specCard.Contains("160 cm") && specCard.Contains("170 cm") && specCard.Contains("Klarad") && specCard.Contains("Ej klarad") &&
+      !specCard.Contains("180 cm") && !specCard.Contains("Ingen motståndare"), "Spec details show recorded heights and attempts without inventing an opponent");
+var power = new DivisionMatch { Category = "Kross Herrar Seniorer", Discipline = "POWER", MatchId = 43, MatchNumber = 2,
+    Finished = 1, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 4547,
+    IndividualScores = [new() { TechniqueId = 1, Points = 2599, Eligible = true }, new() { TechniqueId = 2, Points = 1948, Eligible = true }] };
+Check(power.IsIndividualAttempt && power.HasIndividualResults, "Power breaking is treated as an individual result even when its source code is POWER");
+var powerCard = await Render<MatchCard>(new() { ["Match"] = power, ["Matches"] = new[] { power }, ["Fighters"] = data.Fighters });
+Check(powerCard.Contains("4547 poäng") && powerCard.Contains("2599 poäng") && powerCard.Contains("1948 poäng") &&
+      !powerCard.Contains("Vinnare:"), "Power details retain the reported result and both source attempts");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
 Check(ranking.Contains("Test Alpha") && !ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan") && ranking.Contains("Sortera på") && ranking.Contains("Total Poäng") && ranking.Contains(">Klass</option>") && ranking.Contains(">Klubb</option>") && ranking.Contains(">Herrar</option>") && ranking.Contains(">Damer</option>") && !ranking.Contains("Herrar &amp; damer") && !ranking.Contains("Säsong"), "Poängligan defaults to men and total points without a season filter");
 var rankingFighters = data.Fighters.Select(f => new Competitor {

@@ -127,6 +127,16 @@ if (args.Length == 2 && args[0] == "--published-dir")
     var realFighters = CompetitorResultsParser.Parse(textFiles, history);
     var realCompetitions = CompetitionCatalogService.BuildCatalog(realFighters);
     Check(realFighters.Count > 0 && realCompetitions.Count > 0 && realFighters.All(f => f.TotalPoints == f.Results.Sum(r => r.PointsAwarded)), "The actual local published text and match JSON parse with consistent fighter totals");
+    var swedishOpen = history.SingleOrDefault(item => item.Date.Date == new DateTime(2026, 11, 7) && item.Name == "Swedish ITF Open 2026");
+    if (swedishOpen is not null)
+    {
+        var specStarts = swedishOpen.Matches.Where(match => match.Discipline == "SPEC_TECH").ToList();
+        var powerStarts = swedishOpen.Matches.Where(match => match.Discipline is "POWER" or "POWER_BREAK").ToList();
+        Check(specStarts.Select(match => match.Category).Distinct().Count() >= 25 &&
+              powerStarts.Select(match => match.Category).Distinct().Count() >= 27 &&
+              specStarts.All(match => match.HasIndividualResults) && powerStarts.All(match => match.HasIndividualResults),
+            "The latest Swedish ITF Open export includes scored spec and power starts in every published class");
+    }
     Check(realFighters.All(f => f.Team != "Gnesta")
         && realFighters.Any(f => f.Team == "Team FF TKD" && f.Results.Select(r => r.CompetitionDate.Year).Distinct().Count() > 1),
         "Published historical Gnesta results and current Team FF TKD results merge into one club identity");

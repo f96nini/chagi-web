@@ -24,12 +24,17 @@ public sealed class DivisionMatch
     public string? Group { get; set; }
     public int? WinnerId { get; set; }
     public string? Winner { get; set; }
+    public List<IndividualTechniqueScore> IndividualScores { get; set; } = [];
+    public decimal? HighestClearedHeightCm { get; set; }
 
-    public bool IsIndividualAttempt => Discipline is "SPEC_TECH" or "POWER_BREAK";
+    public bool IsIndividualAttempt => Discipline is "SPEC_TECH" or "POWER" or "POWER_BREAK";
     public bool HasBlueParticipant => BlueId.HasValue && !string.IsNullOrWhiteSpace(BlueParticipant) && BlueParticipant != "?";
-    // Individual-attempt records currently contain no technique values, only registrations.
+    // Head-to-head matches need two participants; individual starts use their own score details.
     public bool HasDetailedData => !IsIndividualAttempt && RedId.HasValue && HasBlueParticipant &&
         (RedPoints.HasValue || BluePoints.HasValue || RedFlags.HasValue || BlueFlags.HasValue);
+    public bool HasIndividualResults => IsIndividualAttempt && RedId.HasValue &&
+        !string.IsNullOrWhiteSpace(RedParticipant) && RedPoints.HasValue &&
+        IndividualScores.Any(score => score.Eligible && score.Points.HasValue);
     public DateTime? StartTime => DateTime.TryParseExact(StartAt, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture,
         DateTimeStyles.None, out var time) ? time : null;
 
@@ -39,6 +44,16 @@ public sealed class DivisionMatch
         : "Avslutad";
 
     public static string FormatScore(decimal? score) => score?.ToString("0.##", CultureInfo.GetCultureInfo("sv-SE")) ?? "–";
+}
+
+public sealed class IndividualTechniqueScore
+{
+    public int TechniqueId { get; set; }
+    public int? AttemptNumber { get; set; }
+    public decimal? HeightCm { get; set; }
+    public decimal? Points { get; set; }
+    public bool? Cleared { get; set; }
+    public bool Eligible { get; set; }
 }
 
 public sealed class MatchDataIndexEntry

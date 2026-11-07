@@ -52,5 +52,5 @@ else if (!Busy && Data != null) { <div class="empty-state"><h1>Tävlingen finns 
     List<CompetitionDivisionEntry> Divisions => Competition?.Divisions.Where(d => (gender == GenderFilterMode.All || (gender == GenderFilterMode.Male ? d.IsMale != false : d.IsMale != true)) && (discipline == CompetitionDisciplineE.Alla || d.Discipline == discipline) && (age == "" || d.AgeClass?.ToString() == age) && (d.Division.Contains(search, StringComparison.OrdinalIgnoreCase) || d.Results.Any(r => r.CompetitorName.Contains(search, StringComparison.OrdinalIgnoreCase) || r.Team.Contains(search, StringComparison.OrdinalIgnoreCase)))).ToList() ?? [];
     bool HasMatchDetails(CompetitionDivisionEntry division) => Competition is { } competition && Data?.MatchHistory.Any(history =>
         history.Date.Date == competition.CompetitionDate.Date && string.Equals(history.Name.Trim(), competition.CompetitionName.Trim(), StringComparison.OrdinalIgnoreCase) &&
-        history.Matches.Any(match => match.HasDetailedData && string.Equals(match.Category.Trim(), division.Division.Trim(), StringComparison.OrdinalIgnoreCase))) == true;
+        history.Matches.Any(match => (match.HasDetailedData || match.HasIndividualResults) && string.Equals(match.Category.Trim(), division.Division.Trim(), StringComparison.OrdinalIgnoreCase))) == true;
 }

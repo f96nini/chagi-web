@@ -63,3 +63,10 @@ table{font-size:.93rem}th{background:#eaf2fb;color:#315577;font-size:.75rem}td{b
 .competition-leaderboard-link small{color:var(--muted);font-size:.82rem}
 .competition-leaderboard-link>span:last-child{font-size:1.3rem;color:#184e77}
 .competition-medal-leaderboard{margin:0 0 40px}
+.individual-result-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 18px;margin-top:12px;padding:11px 14px;background:#eaf2fb;border-radius:6px;font-size:.85rem}
+.individual-result-summary strong{color:#184e77}
+.individual-result-summary span{color:var(--muted)}
+.individual-scores{list-style:none;margin:10px 0 0;padding:0;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.individual-scores li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 13px;font-size:.8rem}
+.individual-scores li+li{border-top:1px solid var(--line)}
+.individual-scores li strong{white-space:nowrap;color:var(--ink)}
