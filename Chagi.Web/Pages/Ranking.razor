@@ -7,7 +7,7 @@
 @if (Data != null)
 {
     <div class="ranking-legend"><span><i class="medal gold" aria-hidden="true"></i> Guld <strong>5 p</strong></span><span><i class="medal silver" aria-hidden="true"></i> Silver <strong>3 p</strong></span><span><i class="medal bronze" aria-hidden="true"></i> Brons <strong>1 p</strong></span><a href="om">Så fungerar Poängligan ↗</a></div>
-    <div class="filter-bar ranking-filters"><label>Kön<select @bind="gender"><option value="male">Herrar</option><option value="female">Damer</option></select></label>
+    <div class="filter-bar ranking-filters"><label>Kön<select @bind="gender"><option value="male">Herrar</option><option value="female">Damer</option><option value="all">Herrar/Damer</option></select></label>
         <label>Gren<select @bind="discipline">@foreach(var d in Enum.GetValues<CompetitionDisciplineE>()) { <option value="@d">@d</option> }</select></label>
         <label>Åldersklass<select @bind="age"><option value="">Alla klasser</option>@foreach(var a in Enum.GetValues<RankingAgeClassE>()) { <option value="@a">@RankingClassFilterService.ToDisplayName(a)</option> }</select></label>
         <label>Klubb<select @bind="club"><option value="">Alla klubbar</option>@foreach(var c in Data.Fighters.Select(f => f.Team).Distinct().Order(SwedishNameComparer.Instance)) { <option>@c</option> }</select></label>
@@ -28,7 +28,7 @@
     }
 }
 @code {
-    string gender = "male", age = "", club = ""; CompetitionDisciplineE discipline;
+    string gender = "all", age = "", club = ""; CompetitionDisciplineE discipline;
     RankingSortMode sortMode = RankingSortMode.TotalPoints;
     List<RankingDisplayGroup> Groups {
         get {
@@ -38,10 +38,10 @@
                 CurrentAgeClass = f.CurrentAgeClass, LatestBelt = f.LatestBelt,
                 Results = f.Results.ToList()
             }).ToList();
-            bool selectedGender = gender != "female";
+            bool? selectedGender = gender switch { "male" => true, "female" => false, _ => null };
             RankingAgeClassE? selectedAge = Enum.TryParse<RankingAgeClassE>(age, out var parsedAge) ? parsedAge : null;
             return RankingDisplayService.BuildGroups(fighters, selectedGender, discipline, selectedAge, sortMode);
         }
     }
-    void Reset() { gender = "male"; age = ""; club = ""; discipline = CompetitionDisciplineE.Alla; sortMode = RankingSortMode.TotalPoints; }
+    void Reset() { gender = "all"; age = ""; club = ""; discipline = CompetitionDisciplineE.Alla; sortMode = RankingSortMode.TotalPoints; }
 }

@@ -92,7 +92,7 @@ var powerCard = await Render<MatchCard>(new() { ["Match"] = power, ["Matches"] =
 Check(powerCard.Contains("4547 poäng") && powerCard.Contains("2599 poäng") && powerCard.Contains("1948 poäng") &&
       !powerCard.Contains("Vinnare:"), "Power details retain the reported result and both source attempts");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
-Check(ranking.Contains("Test Alpha") && !ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan") && ranking.Contains("Sortera på") && ranking.Contains("Total Poäng") && ranking.Contains(">Klass</option>") && ranking.Contains(">Klubb</option>") && ranking.Contains(">Herrar</option>") && ranking.Contains(">Damer</option>") && !ranking.Contains("Herrar &amp; damer") && !ranking.Contains("Säsong"), "Poängligan defaults to men and total points without a season filter");
+Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan") && ranking.Contains("Sortera på") && ranking.Contains("Total Poäng") && ranking.Contains(">Klass</option>") && ranking.Contains(">Klubb</option>") && ranking.Contains(">Herrar</option>") && ranking.Contains(">Damer</option>") && ranking.Contains(">Herrar/Damer</option>") && !ranking.Contains("Säsong"), "Poängligan defaults to combined men and women and total points without a season filter");
 var rankingFighters = data.Fighters.Select(f => new Competitor {
     Id = f.Id, FirstName = f.FirstName, LastName = f.LastName, Team = f.Team, IsMale = f.IsMale,
     CurrentAgeClass = f.CurrentAgeClass, LatestBelt = f.LatestBelt, Results = f.Results.ToList()
