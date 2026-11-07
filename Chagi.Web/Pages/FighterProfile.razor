@@ -37,13 +37,23 @@
     @if (Results.Count == 0) { <div class="empty-state"><h2>Inga resultat i denna gren</h2><p>Välj en annan gren för att se fler resultat.</p></div> }
     else
     {
-        <div class="table-scroll"><table><caption class="sr-only">@fighter.FullName, tävlingshistorik</caption><thead><tr><th scope="col">Tävling</th><th scope="col">Gren / klass</th><th scope="col">Placering</th><th scope="col" class="number">Poäng</th></tr></thead><tbody>
-        @foreach (var result in Results)
+        <div class="table-scroll"><table class="fighter-history-table"><caption class="sr-only">@fighter.FullName, tävlingshistorik</caption><thead><tr>
+            <th scope="col" aria-sort="@HistorySortDirection(FighterHistorySortColumn.Competition)"><button type="button" class="history-sort-button" @onclick="() => SortHistory(FighterHistorySortColumn.Competition)">Tävling <span aria-hidden="true">@HistorySortArrow(FighterHistorySortColumn.Competition)</span></button></th>
+            <th scope="col" aria-sort="@HistorySortDirection(FighterHistorySortColumn.Division)"><button type="button" class="history-sort-button" @onclick="() => SortHistory(FighterHistorySortColumn.Division)">Gren / klass <span aria-hidden="true">@HistorySortArrow(FighterHistorySortColumn.Division)</span></button></th>
+            <th scope="col" aria-sort="@HistorySortDirection(FighterHistorySortColumn.Placement)"><button type="button" class="history-sort-button" @onclick="() => SortHistory(FighterHistorySortColumn.Placement)">Placering <span aria-hidden="true">@HistorySortArrow(FighterHistorySortColumn.Placement)</span></button></th>
+            <th scope="col" class="number" aria-sort="@HistorySortDirection(FighterHistorySortColumn.Points)"><button type="button" class="history-sort-button" @onclick="() => SortHistory(FighterHistorySortColumn.Points)">Poäng <span aria-hidden="true">@HistorySortArrow(FighterHistorySortColumn.Points)</span></button></th>
+        </tr></thead>
+        @foreach (var group in FighterHistorySortService.Sort(Results, historySort, historyAscending))
         {
-            var competition = Data.Competitions.FirstOrDefault(c => c.CompetitionDate.Date == result.CompetitionDate.Date && c.CompetitionName == result.CompetitionName && c.CompetitionCity == result.CompetitionCity);
-            <tr><td>@if (competition != null) { <a class="name-link" href="@($"tavlingar/{ResultLinks.CompetitionId(competition)}")">@result.CompetitionName</a> } else { <strong>@result.CompetitionName</strong> }<small class="table-small">@result.CompetitionDate.ToString("d MMM yyyy")</small></td><td><strong>@result.Discipline</strong><small class="table-small">@result.Division</small></td><td><span class="placement placement-@result.Placement">@(result.Placement > 0 ? result.Placement.ToString() : "–")</span></td><td class="number points">@result.PointsAwarded</td></tr>
+            <tbody class="fighter-history-group">
+            @foreach (var result in group.Results)
+            {
+                var competition = Data.Competitions.FirstOrDefault(c => c.CompetitionDate.Date == result.CompetitionDate.Date && c.CompetitionName == result.CompetitionName && c.CompetitionCity == result.CompetitionCity);
+                <tr><td>@if (competition != null) { <a class="name-link" href="@($"tavlingar/{ResultLinks.CompetitionId(competition)}")">@result.CompetitionName</a> } else { <strong>@result.CompetitionName</strong> }<small class="table-small">@result.CompetitionDate.ToString("d MMM yyyy")</small></td><td><strong>@result.Discipline</strong><small class="table-small">@result.Division</small></td><td><span class="placement placement-@result.Placement">@(result.Placement > 0 ? result.Placement.ToString() : "–")</span></td><td class="number points">@result.PointsAwarded</td></tr>
+            }
+            </tbody>
         }
-        </tbody></table></div>
+        </table></div>
     }
     <p class="source-note">Guld ger 5 poäng, silver 3 och brons 1. Vid lika poäng avgör antalet medaljer av varje färg. En saknad placering ger noll poäng.</p>
     }
@@ -53,11 +63,20 @@ else if (!Busy && Data != null) { <div class="empty-state"><h1>Profilen finns in
     [Parameter] public string Id { get; set; } = "";
     CompetitionDisciplineE discipline;
     bool showBadges;
+    FighterHistorySortColumn historySort = FighterHistorySortColumn.Competition;
+    bool historyAscending;
     ResultsData? badgeData;
     Guid? badgeFighterId;
     IReadOnlyList<CompetitorBadgeAward> badgeAwards = [];
     Competitor? Fighter => Data?.Fighters.FirstOrDefault(f => ResultLinks.MatchesFighterId(f, Id));
     List<CompetitionResult> Results => Fighter?.Results.Where(r => discipline == CompetitionDisciplineE.Alla || r.Discipline == discipline).OrderByDescending(r => r.CompetitionDate).ThenBy(r => r.Discipline).ToList() ?? [];
+    void SortHistory(FighterHistorySortColumn column)
+    {
+        historyAscending = historySort == column ? !historyAscending : column is FighterHistorySortColumn.Division or FighterHistorySortColumn.Placement;
+        historySort = column;
+    }
+    string HistorySortDirection(FighterHistorySortColumn column) => historySort != column ? "none" : historyAscending ? "ascending" : "descending";
+    string HistorySortArrow(FighterHistorySortColumn column) => historySort != column ? "↕" : historyAscending ? "↑" : "↓";
     IReadOnlyList<CompetitorBadgeAward> Badges {
         get {
             if (Data == null || Fighter is not { } fighter) return [];

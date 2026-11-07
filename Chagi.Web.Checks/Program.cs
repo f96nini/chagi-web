@@ -43,6 +43,26 @@ var id = ResultLinks.FighterId(data.Fighters.First());
 Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile links");
 var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
 Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && profile.Contains("VS · Inbördes möten") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and link to VS");
+Check(profile.Contains("class=\"fighter-history-table\"") && profile.Contains("class=\"fighter-history-group\"") &&
+      profile.Contains("aria-sort=\"descending\"") && profile.Contains("Gren / klass"),
+    "Fighter history renders competition groups with sortable column headers");
+var historyResults = new[]
+{
+    new CompetitionResult { CompetitionDate = new(2026, 1, 1), CompetitionName = "Alfa", CompetitionCity = "Göteborg", Discipline = CompetitionDisciplineE.Tul, Division = "Mönster", Placement = 2, PointsAwarded = 3 },
+    new CompetitionResult { CompetitionDate = new(2026, 1, 1), CompetitionName = "Alfa", CompetitionCity = "Göteborg", Discipline = CompetitionDisciplineE.Sparring, Division = "Sparring", Placement = 1, PointsAwarded = 5 },
+    new CompetitionResult { CompetitionDate = new(2026, 2, 1), CompetitionName = "Beta", CompetitionCity = "Stockholm", Discipline = CompetitionDisciplineE.Kross, Division = "Kross", Placement = 3, PointsAwarded = 1 },
+    new CompetitionResult { CompetitionDate = new(2026, 3, 1), CompetitionName = "Gamma", CompetitionCity = "Ljungby", Discipline = CompetitionDisciplineE.Tul, Division = "Mönster", Placement = 0, PointsAwarded = 0 }
+};
+var byDate = FighterHistorySortService.Sort(historyResults, FighterHistorySortColumn.Competition, false);
+var historyByPoints = FighterHistorySortService.Sort(historyResults, FighterHistorySortColumn.Points, false);
+var byPlacement = FighterHistorySortService.Sort(historyResults, FighterHistorySortColumn.Placement, true);
+var byDivision = FighterHistorySortService.Sort(historyResults, FighterHistorySortColumn.Division, true);
+Check(byDate.Select(group => group.CompetitionName).SequenceEqual(["Gamma", "Beta", "Alfa"]) &&
+      historyByPoints.Select(group => group.CompetitionName).SequenceEqual(["Alfa", "Beta", "Gamma"]) &&
+      byPlacement.Select(group => group.CompetitionName).SequenceEqual(["Alfa", "Beta", "Gamma"]) &&
+      byDivision.Select(group => group.CompetitionName).SequenceEqual(["Beta", "Alfa", "Gamma"]) &&
+      historyByPoints[0].Results.Count == 2 && historyByPoints[0].Results.Sum(result => result.PointsAwarded) == 8,
+    "Every history sort keeps a competition's results together and orders competition groups correctly");
 var previousId = Convert.ToBase64String(Encoding.UTF8.GetBytes(data.Fighters.First().FavoriteKey)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 var previousProfile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = previousId });
 Check(previousProfile.Contains("Test Alpha") && !previousProfile.Contains("Profilen finns inte"), "Previously published fighter links still resolve");
