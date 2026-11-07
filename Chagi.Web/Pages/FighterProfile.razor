@@ -6,7 +6,14 @@
 <DataStatus Busy="Busy" Error="@Error" Data="Data" Retry="RefreshAsync" />
 @if (Fighter is { } fighter)
 {
-    var medals = FighterMedalSummaryService.Build(fighter, Data!.Fighters, discipline);
+    var medals = FighterMedalSummaryService.Build(fighter, Data!.Fighters, CompetitionDisciplineE.Alla);
+    var disciplineMedals = new[]
+    {
+        new { Name = "Sparring", Summary = FighterMedalSummaryService.Build(fighter, Data.Fighters, CompetitionDisciplineE.Sparring) },
+        new { Name = "Tul", Summary = FighterMedalSummaryService.Build(fighter, Data.Fighters, CompetitionDisciplineE.Tul) },
+        new { Name = "Spec", Summary = FighterMedalSummaryService.Build(fighter, Data.Fighters, CompetitionDisciplineE.Specialtekniker) },
+        new { Name = "Kross", Summary = FighterMedalSummaryService.Build(fighter, Data.Fighters, CompetitionDisciplineE.Kross) }
+    };
     var beltColors = ProfileBeltColors.FromLatestClass(fighter);
     <div class="profile-header">
         <a class="profile-club-logo" href="@($"klubbar/{Uri.EscapeDataString(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)}")" aria-label="@($"Till klubbprofilen för {fighter.Team}")"><Avatar Name="@fighter.Team" Url="@Images.Club(ClubCatalogService.ResolveClub(fighter.Team)?.Id ?? fighter.Team)" Alt="@($"Klubblogotyp för {fighter.Team}")" Size="large" /></a>
@@ -24,7 +31,28 @@
             }
         </div>
     </div>
-    <div class="profile-stats"><div><span>Medaljer</span><Medals Gold="medals.GoldCount" Silver="medals.SilverCount" Bronze="medals.BronzeCount" /></div><div><span>Medaljpoäng</span><strong>@Results.Sum(r => r.PointsAwarded)</strong></div><div><span>Tävlingar</span><strong>@medals.CompetitionCount</strong></div><div><span>Poängligan, samma kön</span><strong>@(medals.PointsLeaguePosition > 0 ? $"#{medals.PointsLeaguePosition}" : "–")</strong></div></div>
+    <section class="fighter-medal-overview" aria-labelledby="fighter-medals-title">
+        <div class="fighter-medal-total">
+            <h2 id="fighter-medals-title">Alla medaljer</h2>
+            <TrophyMedals Gold="medals.GoldCount" Silver="medals.SilverCount" Bronze="medals.BronzeCount" Large="true" />
+            <p>@medals.TotalMedalsText</p>
+            <div class="fighter-medal-facts">
+                <span><strong>@medals.CompetitionCount</strong>Tävlingar</span>
+                <span><strong>@fighter.Results.Sum(result => result.PointsAwarded)</strong>Medaljpoäng</span>
+                <span><strong>@(medals.LeaguePosition > 0 ? $"#{medals.LeaguePosition}" : "–")</strong>Medaljligan</span>
+                <span><strong>@(medals.PointsLeaguePosition > 0 ? $"#{medals.PointsLeaguePosition}" : "–")</strong>Poängligan, samma kön</span>
+            </div>
+        </div>
+        <div class="fighter-medal-disciplines">
+            @foreach (var item in disciplineMedals)
+            {
+                <div class="fighter-medal-discipline">
+                    <h3>@item.Name</h3>
+                    <TrophyMedals Gold="item.Summary.GoldCount" Silver="item.Summary.SilverCount" Bronze="item.Summary.BronzeCount" />
+                </div>
+            }
+        </div>
+    </section>
     <nav class="profile-tabs" aria-label="Fighterprofil"><button type="button" class="@(!showBadges ? "active" : "")" aria-current="@(!showBadges ? "page" : null)" @onclick="() => showBadges = false">Tävlingshistorik</button><button type="button" class="@(showBadges ? "active" : "")" aria-current="@(showBadges ? "page" : null)" @onclick="() => showBadges = true">Badges</button><a href="@($"fighters/{Id}/vs")">VS · Inbördes möten <span aria-hidden="true">↗</span></a></nav>
     @if (showBadges)
     {

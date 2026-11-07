@@ -1,0 +1,11 @@
+<div class="trophy-medals @(Large ? "trophy-medals-large" : "")" role="group" aria-label="@($"{Gold} guld, {Silver} silver, {Bronze} brons")">
+    <span class="trophy-medal"><img src="images/trophy-gold.svg" alt="" aria-hidden="true" /><strong>@Gold</strong><small>Guld</small></span>
+    <span class="trophy-medal"><img src="images/trophy-silver.svg" alt="" aria-hidden="true" /><strong>@Silver</strong><small>Silver</small></span>
+    <span class="trophy-medal"><img src="images/trophy-bronze.svg" alt="" aria-hidden="true" /><strong>@Bronze</strong><small>Brons</small></span>
+</div>
+@code {
+    [Parameter] public int Gold { get; set; }
+    [Parameter] public int Silver { get; set; }
+    [Parameter] public int Bronze { get; set; }
+    [Parameter] public bool Large { get; set; }
+}

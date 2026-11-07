@@ -43,6 +43,12 @@ var id = ResultLinks.FighterId(data.Fighters.First());
 Check(fighters.Contains("fighters/" + id), "Fighter rows contain stable profile links");
 var profile = await Render<Chagi.Web.Pages.FighterProfile>(new() { ["Id"] = id });
 Check(profile.Contains("Test Alpha") && profile.Contains("Testcup") && profile.Contains("VS · Inbördes möten") && !profile.Contains("Profilen finns inte"), "Profile routes resolve after a new import and link to VS");
+Check(profile.Contains("Alla medaljer") && profile.Split("class=\"fighter-medal-discipline\"").Length == 5 &&
+      profile.Contains("<h3>Sparring</h3>") && profile.Contains("<h3>Tul</h3>") &&
+      profile.Contains("<h3>Spec</h3>") && profile.Contains("<h3>Kross</h3>") &&
+      profile.Contains("images/trophy-gold.svg") && profile.Contains("images/trophy-silver.svg") &&
+      profile.Contains("images/trophy-bronze.svg"),
+    "Fighter profile shows all medals and a trophy breakdown for each discipline");
 Check(profile.Contains("class=\"fighter-history-table\"") && profile.Contains("class=\"fighter-history-group\"") &&
       profile.Contains("aria-sort=\"descending\"") && profile.Contains("Gren / klass"),
     "Fighter history renders competition groups with sortable column headers");
@@ -94,6 +100,27 @@ Check(competition.Contains(">Resultat</th>") && competition.Contains("170 cm") &
     "Expanded spec and power classes show their measured result beside the existing columns");
 var matchDetails = await Render<Chagi.Web.Pages.MatchDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()), ["DivisionId"] = ResultLinks.DivisionId("Mönster Pojkar Kadetter VIT") });
 Check(matchDetails.Contains("Match 1") && matchDetails.Contains("Test Alpha") && matchDetails.Contains("Test Gamma") && matchDetails.Contains("5 matchpoäng") && matchDetails.Contains("Vinnare"), "Match-details route renders participants, scores and winner");
+var sparringDetails = await Render<Chagi.Web.Pages.MatchDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()), ["DivisionId"] = ResultLinks.DivisionId("Sparring Pojkar Kadetter VIT") });
+Check(sparringDetails.Contains("Sammanställning") && sparringDetails.Contains("Poäng</th>") &&
+      sparringDetails.Contains("Vinster</th>") && sparringDetails.Contains("Flaggor</th>") &&
+      sparringDetails.IndexOf("Sammanställning", StringComparison.Ordinal) < sparringDetails.IndexOf("Match 1", StringComparison.Ordinal) &&
+      sparringDetails.Contains("Test Alpha") && sparringDetails.Contains("Test Gamma"),
+    "Sparring match details put the participant summary above the match cards");
+var summary = SparringMatchSummaryService.Build([
+    new() { Discipline = "SPARRING", MatchId = 1, Finished = 1, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 2, RedFlags = 4,
+        BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 0, BlueFlags = 0, WinnerId = 1 },
+    new() { Discipline = "SPARRING", MatchId = 2, Finished = 1, RedId = 2, RedParticipant = "Test Gamma - Testklubb", RedPoints = 1, RedFlags = 2,
+        BlueId = 1, BlueParticipant = "Test Alpha - Testklubb", BluePoints = 1, BlueFlags = 2 },
+    new() { Discipline = "SPARRING", MatchId = 3, Finished = 0, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 9, RedFlags = 9,
+        BlueId = 3, BlueParticipant = "Test Delta - Testklubb", BluePoints = 0, BlueFlags = 0 },
+    new() { Discipline = "PATTERN", MatchId = 4, Finished = 1, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 5,
+        BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 0 }
+], [new() { CompetitorName = "Test Epsilon", Team = "Testklubb" }]);
+Check(summary.Count == 4 && summary[0].Name == "Test Alpha" && summary[0].Points == 3 && summary[0].Wins == 1 && summary[0].Flags == 6 &&
+      summary.Single(row => row.Name == "Test Gamma").Points == 1 && summary.Single(row => row.Name == "Test Gamma").Flags == 2 &&
+      summary.Single(row => row.Name == "Test Delta").FinishedMatches == 0 &&
+      summary.Single(row => row.Name == "Test Epsilon").Points is null,
+    "Sparring totals use both corners of finished bouts and include participants without a completed bout");
 Check(ResultLinks.DivisionId(" mönster pojkar kadetter vit ") == ResultLinks.DivisionId("Mönster Pojkar Kadetter VIT"), "Match detail links tolerate category whitespace and casing differences");
 var unfinished = new DivisionMatch { MatchNumber = 2, Finished = 0, RedId = 1, BlueId = 2, RedParticipant = "Test Alpha - Testklubb", BlueParticipant = "Test Gamma - Testklubb", WinnerId = 1 };
 var unfinishedCard = await Render<MatchCard>(new() { ["Match"] = unfinished, ["Matches"] = new[] { unfinished }, ["Fighters"] = data.Fighters });
@@ -205,13 +232,17 @@ sealed class CheckStore : IDataSnapshotStore
 }
 sealed class FixtureHandler : HttpMessageHandler
 {
-    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\n2. Test Gamma - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\nSpec. Flickor Kadetter VIT\n0. Test Beta - Testklubb\nKross Pojkar Kadetter VIT\n0. Test Alpha - Testklubb\n0. Test Gamma - Testklubb\n");
+    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\n2. Test Gamma - Testklubb\nSparring Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\n2. Test Gamma - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\nSpec. Flickor Kadetter VIT\n0. Test Beta - Testklubb\nKross Pojkar Kadetter VIT\n0. Test Alpha - Testklubb\n0. Test Gamma - Testklubb\n");
     readonly byte[] matchIndex = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { new MatchDataIndexEntry { CompetitionDate = new DateTime(2026, 10, 17), CompetitionName = "Testcup", File = "testcup.json" } }));
     readonly byte[] matches = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { new DivisionMatch {
         Category = "Mönster Pojkar Kadetter VIT", Discipline = "PATTERN", MatchId = 10, MatchNumber = 1, Finished = 1,
         RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 5, RedFlags = 2,
         BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 3, BlueFlags = 1,
         WinnerId = 1, Winner = "Test Alpha - Testklubb", Ring = "A" },
+        new DivisionMatch { Category = "Sparring Pojkar Kadetter VIT", Discipline = "SPARRING", MatchId = 14, MatchNumber = 1,
+            Finished = 1, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 2, RedFlags = 4,
+            BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 0, BlueFlags = 0,
+            WinnerId = 1, Winner = "Test Alpha - Testklubb", Ring = "A" },
         new DivisionMatch { Category = "Spec. Flickor Kadetter VIT", Discipline = "SPEC_TECH", MatchId = 11, MatchNumber = 1,
             Finished = 1, RedId = 3, RedParticipant = "Test Beta - Testklubb", RedPoints = 1, HighestClearedHeightCm = 170,
             IndividualScores = [new() { TechniqueId = 1, HeightCm = 170, Points = 1, Eligible = true, Cleared = true }] },

@@ -7,6 +7,27 @@
 {
     var individual = matches.All(match => match.IsIndividualAttempt);
     <div class="page-intro"><span class="eyebrow">MATCHDETALJER · @competition.CompetitionDate.ToString("d MMMM yyyy")</span><h1>@matches[0].Category<span class="accent">.</span></h1><p>@competition.CompetitionName · @competition.CompetitionCity</p></div>
+    @if (matches.Any(match => string.Equals(match.Discipline, "SPARRING", StringComparison.OrdinalIgnoreCase)))
+    {
+        var division = competition.Divisions.FirstOrDefault(item => ResultLinks.DivisionId(item.Division) == DivisionId);
+        var standings = SparringMatchSummaryService.Build(matches, division?.Results);
+        @if (standings.Count > 0)
+        {
+            <section class="sparring-summary" aria-labelledby="sparring-summary-title">
+                <div class="section-heading compact"><h2 id="sparring-summary-title">Sammanställning</h2><span class="muted">@standings.Count deltagare</span></div>
+                <p class="sparring-summary-note">Summering av registrerade avslutade matcher. Poäng avser matchpoäng.</p>
+                <div class="table-scroll"><table><caption class="sr-only">Poäng, vinster och flaggor i @matches[0].Category</caption><thead><tr><th scope="col">Deltagare</th><th scope="col">Klubb</th><th scope="col" class="number">Poäng</th><th scope="col" class="number">Vinster</th><th scope="col" class="number">Flaggor</th></tr></thead><tbody>
+                    @foreach (var row in standings)
+                    {
+                        var fighter = data.Fighters.FirstOrDefault(item => string.Equals(
+                            ClubCatalogService.NormalizeParticipant($"{item.FullName} - {item.Team}"), row.Participant,
+                            StringComparison.OrdinalIgnoreCase));
+                        <tr><td>@if (fighter is not null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@row.Name</a> } else { @row.Name }</td><td>@row.Club</td><td class="number">@DivisionMatch.FormatScore(row.Points)</td><td class="number">@(row.FinishedMatches > 0 ? row.Wins.ToString() : "–")</td><td class="number">@DivisionMatch.FormatScore(row.Flags)</td></tr>
+                    }
+                </tbody></table></div>
+            </section>
+        }
+    }
     <div class="match-count"><strong>@matches.Count @(individual ? matches.Count == 1 ? "deltagarstart" : "deltagarstarter" : matches.Count == 1 ? "möte" : "möten")</strong></div>
     @if (individual && matches.Any(match => match.HasIndividualResults)) { <p class="filter-explanation">Registrerade poäng och försök visas nedan. Medaljplaceringarna finns i resultatlistan.</p> }
     else if (individual) { <p class="filter-explanation">Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan.</p> }
