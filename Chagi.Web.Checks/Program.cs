@@ -70,6 +70,8 @@ var vs = await Render<Chagi.Web.Pages.FighterVs>(new() { ["Id"] = id });
 Check(vs.Contains("Test Gamma") && vs.Contains("Vinnare: Test Alpha") && vs.Contains("Matchpoäng: 5 – 3") && vs.Contains("Matchdetaljer"), "VS renders a real match with result, opponent and details link");
 var competition = await Render<Chagi.Web.Pages.CompetitionDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()) });
 Check(competition.Contains("<details") && competition.Contains("Test Alpha") && competition.Contains("Klassresultat") && competition.Contains("Visa matchdetaljer"), "Competition details render placements and an available match-details link");
+Check(competition.Contains(">Resultat</th>") && competition.Contains("170 cm") && competition.Contains("class=\"number\">500</td>"),
+    "Expanded spec and power classes show their measured result beside the existing columns");
 var matchDetails = await Render<Chagi.Web.Pages.MatchDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()), ["DivisionId"] = ResultLinks.DivisionId("Mönster Pojkar Kadetter VIT") });
 Check(matchDetails.Contains("Match 1") && matchDetails.Contains("Test Alpha") && matchDetails.Contains("Test Gamma") && matchDetails.Contains("5 matchpoäng") && matchDetails.Contains("Vinnare"), "Match-details route renders participants, scores and winner");
 Check(ResultLinks.DivisionId(" mönster pojkar kadetter vit ") == ResultLinks.DivisionId("Mönster Pojkar Kadetter VIT"), "Match detail links tolerate category whitespace and casing differences");
@@ -91,6 +93,40 @@ Check(power.IsIndividualAttempt && power.HasIndividualResults, "Power breaking i
 var powerCard = await Render<MatchCard>(new() { ["Match"] = power, ["Matches"] = new[] { power }, ["Fighters"] = data.Fighters });
 Check(powerCard.Contains("4547 poäng") && powerCard.Contains("2599 poäng") && powerCard.Contains("1948 poäng") &&
       !powerCard.Contains("Vinnare:"), "Power details retain the reported result and both source attempts");
+static DivisionMatch IndividualStart(string discipline, int id, string name, decimal points, decimal? height = null) => new()
+{
+    Discipline = discipline, Finished = 1, MatchId = id, RedId = id, RedParticipant = $"{name} - Testklubb",
+    RedPoints = points, HighestClearedHeightCm = height,
+    IndividualScores = [new() { TechniqueId = 1, Points = points, Eligible = true }]
+};
+var powerDivision = new CompetitionDivisionEntry { Discipline = CompetitionDisciplineE.Kross, Results =
+    [new() { CompetitorName = "Alpha", Team = "Testklubb", Placement = 1 },
+     new() { CompetitorName = "Beta", Team = "Testklubb", Placement = 2 },
+     new() { CompetitorName = "Gamma", Team = "Testklubb", Placement = 3 },
+     new() { CompetitorName = "Delta", Team = "Testklubb", Placement = 0 }] };
+var powerStarts = new[] { IndividualStart("POWER", 1, "Alpha", 500), IndividualStart("POWER", 2, "Beta", 400),
+    IndividualStart("POWER", 3, "Gamma", 400), IndividualStart("POWER", 4, "Delta", 0) };
+var powerTable = IndividualResultRankingService.Build(powerDivision, powerStarts);
+Check(powerTable.ShowResultColumn && powerTable.HasCalculatedPlacements &&
+      powerTable.Rows.Select(row => (row.Participant.CompetitorName, row.Result, row.Placement))
+          .SequenceEqual(new[] { ("Alpha", (decimal?)500, 1), ("Beta", (decimal?)400, 2),
+              ("Gamma", (decimal?)400, 2), ("Delta", (decimal?)0, 4) }),
+    "Power results rank every participant, retain zero, and share places for equal scores");
+var specDivision = new CompetitionDivisionEntry { Discipline = CompetitionDisciplineE.Specialtekniker, Results =
+    [new() { CompetitorName = "Alpha", Team = "Testklubb", Placement = 2 },
+     new() { CompetitorName = "Beta", Team = "Testklubb", Placement = 1 },
+     new() { CompetitorName = "Gamma", Team = "Testklubb", Placement = 3 },
+     new() { CompetitorName = "Delta", Team = "Testklubb", Placement = 0 }] };
+var specStarts = new[] { IndividualStart("SPEC_TECH", 1, "Alpha", 1, 170), IndividualStart("SPEC_TECH", 2, "Beta", 1, 180),
+    IndividualStart("SPEC_TECH", 3, "Gamma", 1), IndividualStart("SPEC_TECH", 4, "Delta", 0) };
+var specTable = IndividualResultRankingService.Build(specDivision, specStarts);
+Check(specTable.ShowResultColumn && specTable.HasCalculatedPlacements &&
+      specTable.Rows.Select(row => (row.Result, row.Placement))
+          .SequenceEqual(new[] { ((decimal?)180, 1), ((decimal?)170, 2), ((decimal?)null, 3), ((decimal?)null, 3) }),
+    "Spec results rank cleared heights and group participants without a recorded height last");
+var incompleteTable = IndividualResultRankingService.Build(powerDivision, powerStarts.SkipLast(1));
+Check(incompleteTable.ShowResultColumn && !incompleteTable.HasCalculatedPlacements && incompleteTable.Rows.Last().Placement == 0,
+    "Incomplete individual records display known values without inventing a full ranking");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
 Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan") && ranking.Contains("Sortera på") && ranking.Contains("Total Poäng") && ranking.Contains(">Klass</option>") && ranking.Contains(">Klubb</option>") && ranking.Contains(">Herrar</option>") && ranking.Contains(">Damer</option>") && ranking.Contains(">Herrar/Damer</option>") && !ranking.Contains("Säsong"), "Poängligan defaults to combined men and women and total points without a season filter");
 var rankingFighters = data.Fighters.Select(f => new Competitor {
@@ -149,13 +185,22 @@ sealed class CheckStore : IDataSnapshotStore
 }
 sealed class FixtureHandler : HttpMessageHandler
 {
-    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\n2. Test Gamma - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\n");
+    readonly byte[] text = Encoding.UTF8.GetBytes("Testcup\n2026-10-17\nTeststad\nMönster Pojkar Kadetter VIT\n1. Test Alpha - Testklubb\n2. Test Gamma - Testklubb\nMönster Flickor Kadetter VIT\n2. Test Beta - Testklubb\nSpec. Flickor Kadetter VIT\n0. Test Beta - Testklubb\nKross Pojkar Kadetter VIT\n0. Test Alpha - Testklubb\n0. Test Gamma - Testklubb\n");
     readonly byte[] matchIndex = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { new MatchDataIndexEntry { CompetitionDate = new DateTime(2026, 10, 17), CompetitionName = "Testcup", File = "testcup.json" } }));
     readonly byte[] matches = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { new DivisionMatch {
         Category = "Mönster Pojkar Kadetter VIT", Discipline = "PATTERN", MatchId = 10, MatchNumber = 1, Finished = 1,
         RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 5, RedFlags = 2,
         BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 3, BlueFlags = 1,
-        WinnerId = 1, Winner = "Test Alpha - Testklubb", Ring = "A" } }));
+        WinnerId = 1, Winner = "Test Alpha - Testklubb", Ring = "A" },
+        new DivisionMatch { Category = "Spec. Flickor Kadetter VIT", Discipline = "SPEC_TECH", MatchId = 11, MatchNumber = 1,
+            Finished = 1, RedId = 3, RedParticipant = "Test Beta - Testklubb", RedPoints = 1, HighestClearedHeightCm = 170,
+            IndividualScores = [new() { TechniqueId = 1, HeightCm = 170, Points = 1, Eligible = true, Cleared = true }] },
+        new DivisionMatch { Category = "Kross Pojkar Kadetter VIT", Discipline = "POWER", MatchId = 12, MatchNumber = 1,
+            Finished = 1, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 500,
+            IndividualScores = [new() { TechniqueId = 1, Points = 500, Eligible = true }] },
+        new DivisionMatch { Category = "Kross Pojkar Kadetter VIT", Discipline = "POWER", MatchId = 13, MatchNumber = 2,
+            Finished = 1, RedId = 2, RedParticipant = "Test Gamma - Testklubb", RedPoints = 500,
+            IndividualScores = [new() { TechniqueId = 1, Points = 500, Eligible = true }] } }));
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
     {
         var bytes = request.RequestUri!.AbsolutePath switch {

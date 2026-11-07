@@ -32,15 +32,19 @@
     @if (divisions.Count == 0) { <div class="empty-state"><h2>Inga resultat matchar filtren</h2><p>Prova ett annat kön, en annan gren, åldersklass eller sökning.</p></div> }
     @foreach (var division in divisions)
     {
-        <details class="division-card"><summary><span><span class="eyebrow">@division.Discipline</span><strong>@division.Division</strong></span><span class="division-count">@division.Results.Count registrerade @if (HasMatchDetails(division)) { <small class="match-available">Matchdetaljer finns</small> }<span aria-hidden="true">＋</span></span></summary>
-            <div class="table-scroll"><table><caption class="sr-only">Resultat i @division.Division</caption><thead><tr><th scope="col">Placering</th><th scope="col">Fighter</th><th scope="col">Klubb</th></tr></thead><tbody>
-            @foreach (var result in division.Results)
+        var divisionMatches = MatchesFor(division);
+        var resultTable = IndividualResultRankingService.Build(division, divisionMatches);
+        var hasMatchDetails = divisionMatches.Any(match => match.HasDetailedData || match.HasIndividualResults);
+        <details class="division-card"><summary><span><span class="eyebrow">@division.Discipline</span><strong>@division.Division</strong></span><span class="division-count">@division.Results.Count registrerade @if (hasMatchDetails) { <small class="match-available">Matchdetaljer finns</small> }<span aria-hidden="true">＋</span></span></summary>
+            <div class="table-scroll"><table><caption class="sr-only">Resultat i @division.Division</caption><thead><tr><th scope="col">Placering</th><th scope="col">Fighter</th><th scope="col">Klubb</th>@if (resultTable.ShowResultColumn) { <th scope="col" class="number">Resultat</th> }</tr></thead><tbody>
+            @foreach (var row in resultTable.Rows)
             {
-                var fighter = Data!.Fighters.FirstOrDefault(f => f.Id == result.CompetitorId);
-                <tr><td><span class="placement placement-@result.Placement">@(result.Placement > 0 ? result.Placement.ToString() : "–")</span></td><td>@if (fighter != null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@result.CompetitorName</a> } else { @result.CompetitorName }</td><td>@result.Team</td></tr>
+                var fighter = Data!.Fighters.FirstOrDefault(f => f.Id == row.Participant.CompetitorId);
+                <tr><td><span class="placement placement-@row.Placement">@(row.Placement > 0 ? row.Placement.ToString() : "–")</span></td><td>@if (fighter != null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@row.Participant.CompetitorName</a> } else { @row.Participant.CompetitorName }</td><td>@row.Participant.Team</td>@if (resultTable.ShowResultColumn) { <td class="number">@FormatResult(division, row.Result)</td> }</tr>
             }
             </tbody></table></div>
-            @if (HasMatchDetails(division)) { <a class="match-details-link" href="@($"tavlingar/{Id}/matcher/{ResultLinks.DivisionId(division.Division)}")">Visa matchdetaljer <span aria-hidden="true">↗</span></a> }
+            @if (resultTable.HasCalculatedPlacements) { <p class="division-result-note">Placeringarna här följer registrerat resultat. Medaljstatistiken följer publicerade placeringar.</p> }
+            @if (hasMatchDetails) { <a class="match-details-link" href="@($"tavlingar/{Id}/matcher/{ResultLinks.DivisionId(division.Division)}")">Visa matchdetaljer <span aria-hidden="true">↗</span></a> }
         </details>
     }
 }
@@ -50,7 +54,11 @@ else if (!Busy && Data != null) { <div class="empty-state"><h1>Tävlingen finns 
     string search = "", age = ""; GenderFilterMode gender = GenderFilterMode.All; CompetitionDisciplineE discipline;
     CompetitionCatalogEntry? Competition => Data?.Competitions.FirstOrDefault(c => ResultLinks.CompetitionId(c) == Id);
     List<CompetitionDivisionEntry> Divisions => Competition?.Divisions.Where(d => (gender == GenderFilterMode.All || (gender == GenderFilterMode.Male ? d.IsMale != false : d.IsMale != true)) && (discipline == CompetitionDisciplineE.Alla || d.Discipline == discipline) && (age == "" || d.AgeClass?.ToString() == age) && (d.Division.Contains(search, StringComparison.OrdinalIgnoreCase) || d.Results.Any(r => r.CompetitorName.Contains(search, StringComparison.OrdinalIgnoreCase) || r.Team.Contains(search, StringComparison.OrdinalIgnoreCase)))).ToList() ?? [];
-    bool HasMatchDetails(CompetitionDivisionEntry division) => Competition is { } competition && Data?.MatchHistory.Any(history =>
-        history.Date.Date == competition.CompetitionDate.Date && string.Equals(history.Name.Trim(), competition.CompetitionName.Trim(), StringComparison.OrdinalIgnoreCase) &&
-        history.Matches.Any(match => (match.HasDetailedData || match.HasIndividualResults) && string.Equals(match.Category.Trim(), division.Division.Trim(), StringComparison.OrdinalIgnoreCase))) == true;
+    List<DivisionMatch> MatchesFor(CompetitionDivisionEntry division) => Competition is { } competition && Data is { } data ? data.MatchHistory.Where(history =>
+        history.Date.Date == competition.CompetitionDate.Date && string.Equals(history.Name.Trim(), competition.CompetitionName.Trim(), StringComparison.OrdinalIgnoreCase))
+        .SelectMany(history => history.Matches)
+        .Where(match => string.Equals(match.Category.Trim(), division.Division.Trim(), StringComparison.OrdinalIgnoreCase))
+        .DistinctBy(match => match.MatchId).ToList() : [];
+    static string FormatResult(CompetitionDivisionEntry division, decimal? value) => value.HasValue
+        ? $"{DivisionMatch.FormatScore(value)}{(division.Discipline == CompetitionDisciplineE.Specialtekniker ? " cm" : "")}" : "–";
 }
