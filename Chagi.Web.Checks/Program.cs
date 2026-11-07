@@ -119,6 +119,8 @@ var clubCompetition = await Render<Chagi.Web.Pages.ClubCompetition>(new() { ["Cl
 Check(clubCompetition.Contains("Test Alpha") && clubCompetition.Contains("Test Beta") && clubCompetition.Contains("Alla resultat"), "Club competition page renders its medallists and full-results link");
 var knownLogo = await Render<ClubBadge>(new() { ["Name"] = "Stockholm Impact" });
 Check(knownLogo.Contains("images/clubs/impact.png") && knownLogo.Contains("klubbar/stockholm-impact"), "Known club badges use app artwork and link to club profiles");
+var teamFfLogo = await Render<ClubBadge>(new() { ["Name"] = "Team FF TKD" });
+Check(teamFfLogo.Contains("images/clubs/team-ff-tkd.png") && teamFfLogo.Contains("klubbar/gnesta"), "Team FF TKD uses the supplied logo without changing its club identity");
 var filtered = await Render<NoMatchFighters>();
 Check(filtered.Contains("Inga fighters hittades") && !filtered.Contains("Test Alpha"), "A query with no matching fighter renders an explicit empty state");
 var status = await Render<DataStatus>(new() { ["Busy"] = false });

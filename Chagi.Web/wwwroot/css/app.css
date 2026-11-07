@@ -70,3 +70,10 @@ table{font-size:.93rem}th{background:#eaf2fb;color:#315577;font-size:.75rem}td{b
 .individual-scores li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 13px;font-size:.8rem}
 .individual-scores li+li{border-top:1px solid var(--line)}
 .individual-scores li strong{white-space:nowrap;color:var(--ink)}
+img.avatar[src$="/team-ff-tkd.png"]{background:#17130b}
+img.avatar[src$="/frolunda.png"]{padding:0;object-fit:cover;object-position:center}
+img.avatar.small[src$="/frolunda.png"]{width:46px;min-width:46px;height:32px}
+img.avatar.club[src$="/frolunda.png"]{width:108px;min-width:108px;height:76px}
+.club-profile-header img.avatar.large[src$="/frolunda.png"]{width:170px;min-width:170px;height:108px}
+.profile-club-logo img.avatar.large[src$="/frolunda.png"]{width:155px;min-width:155px;height:100px}
+@media(max-width:600px){img.avatar.club[src$="/frolunda.png"]{width:80px;min-width:80px;height:56px}.club-profile-header img.avatar.large[src$="/frolunda.png"]{width:108px;min-width:108px;height:68px}.profile-club-logo img.avatar.large[src$="/frolunda.png"]{width:105px;min-width:105px;height:68px}}

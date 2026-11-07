@@ -14,6 +14,7 @@ public sealed class PublicImages(IConfiguration configuration)
         var filename = ClubCatalogService.GetAllClubs().FirstOrDefault(c => c.Id == id)?.ImageSource;
         if (string.IsNullOrWhiteSpace(filename)) return "images/club-placeholder.svg";
         if (filename == "kungalv.png") filename = "kungalv.svg";
+        if (filename == "gnesta.png") filename = "team-ff-tkd.png";
         return $"images/clubs/{Uri.EscapeDataString(filename)}";
     }
     public string? Fighter(string id) => Safe(configuration[$"PublicImages:Fighters:{id}"]);
