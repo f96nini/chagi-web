@@ -101,11 +101,15 @@ public partial class CompetitionDetailsPage : ContentPage, IQueryAttributable
         var dataVersion = CompetitorRepository.GetChangeVersion();
         try
         {
-            var available = await CompetitionMatchService.GetAvailableDivisionsAsync(
+            var matches = await CompetitionMatchService.GetCompetitionMatchesAsync(
                 competition.CompetitionDate, competition.CompetitionName, token);
             if (!_lifetime.IsCurrent(token) || !ReferenceEquals(competition, _competition)) return;
             foreach (var division in competition.Divisions)
-                division.HasMatchData = available.Contains(division.Division.Trim());
+            {
+                var divisionMatches = matches.Where(match => string.Equals(match.Category.Trim(), division.Division.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+                division.HasMatchData = divisionMatches.Any(match => match.HasDetailedData || match.HasIndividualResults);
+                division.IndividualResults = IndividualResultRankingService.Build(division, divisionMatches);
+            }
             _matchesLoadedFor = competition;
             _matchDataVersion = dataVersion;
         }
@@ -114,7 +118,11 @@ public partial class CompetitionDetailsPage : ContentPage, IQueryAttributable
         {
             AppDiagnostics.Log(ex, "Läs matchtillgänglighet");
             if (_lifetime.IsCurrent(token))
-                foreach (var division in competition.Divisions) division.HasMatchData = false;
+                foreach (var division in competition.Divisions)
+                {
+                    division.HasMatchData = false;
+                    division.IndividualResults = null;
+                }
         }
     }
 

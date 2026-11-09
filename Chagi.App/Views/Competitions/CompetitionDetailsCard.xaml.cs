@@ -6,8 +6,9 @@ namespace ITF_Taekwondo_Gradering.Views;
 public partial class CompetitionDetailsCard : ContentView
 {
     readonly TapGestureRecognizer _titleTap = new();
-    IReadOnlyList<CompetitionPlacementEntry> _otherParticipants = [];
+    IReadOnlyList<IndividualResultRow> _otherParticipants = [];
     bool _otherRowsBuilt;
+    bool _showResultColumn;
 
     public static readonly BindableProperty HasMatchDataProperty =
         BindableProperty.Create(nameof(HasMatchData), typeof(bool), typeof(CompetitionDetailsCard), false,
@@ -34,6 +35,16 @@ public partial class CompetitionDetailsCard : ContentView
             typeof(CompetitionDetailsCard),
             default(CompetitionDivisionEntry),
             propertyChanged: OnDivisionChanged);
+
+    public static readonly BindableProperty IndividualResultsProperty =
+        BindableProperty.Create(nameof(IndividualResults), typeof(IndividualResultTable), typeof(CompetitionDetailsCard), null,
+            propertyChanged: (bindable, _, _) => ((CompetitionDetailsCard)bindable).UpdateDivision());
+
+    public IndividualResultTable? IndividualResults
+    {
+        get => (IndividualResultTable?)GetValue(IndividualResultsProperty);
+        set => SetValue(IndividualResultsProperty, value);
+    }
 
     public static readonly BindableProperty CompetitorSelectedCommandProperty =
         BindableProperty.Create(
@@ -87,6 +98,8 @@ public partial class CompetitionDetailsCard : ContentView
         OtherParticipantsToggle.IsVisible = false;
         _otherParticipants = [];
         _otherRowsBuilt = false;
+        _showResultColumn = false;
+        ResultHeader.IsVisible = false;
         if (Division == null)
         {
             TitleLabel.Text = string.Empty;
@@ -101,12 +114,18 @@ public partial class CompetitionDetailsCard : ContentView
         BeltGroupLabel.Text = Division.BeltGroup;
         BeltGroupLabel.IsVisible = !string.IsNullOrWhiteSpace(Division.BeltGroup);
 
-        var participants = CompetitionParticipantListService.Build(Division.Results);
-        foreach (var result in participants.Visible)
+        var table = IndividualResults;
+        if (table != null && table.Rows.Any(row => !Division.Results.Contains(row.Participant))) table = null;
+        _showResultColumn = table?.ShowResultColumn == true;
+        ResultHeader.IsVisible = _showResultColumn;
+        var rows = table?.Rows ?? Division.Results.Select(result => new IndividualResultRow(result, null, result.Placement)).ToList();
+        var ordered = rows.OrderBy(row => row.Placement > 0 ? row.Placement : int.MaxValue).ToList();
+        var visible = ordered.Count <= 4 ? ordered : ordered.Where(row => row.Placement is >= 1 and <= 3).ToList();
+        foreach (var result in visible)
         {
             WinnerRowsHost.Children.Add(BuildParticipantRow(result));
         }
-        _otherParticipants = participants.Hidden;
+        _otherParticipants = ordered.Count <= 4 ? [] : ordered.Where(row => row.Placement is not (>= 1 and <= 3)).ToList();
         RefreshOtherParticipants();
     }
 
@@ -185,8 +204,9 @@ public partial class CompetitionDetailsCard : ContentView
         return string.Empty;
     }
 
-    View BuildParticipantRow(CompetitionPlacementEntry result)
+    View BuildParticipantRow(IndividualResultRow rowResult)
     {
+        var result = rowResult.Participant;
         var teamLabel = new Label
         {
             Text = result.Team,
@@ -213,13 +233,22 @@ public partial class CompetitionDetailsCard : ContentView
             ColumnDefinitions =
             {
                 new ColumnDefinition(GridLength.Auto),
-                new ColumnDefinition(GridLength.Star)
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
             },
             ColumnSpacing = 10
         };
 
-        row.Add(CompetitionUiHelpers.CreatePlacementBadge(result.Placement), 0, 0);
+        row.Add(CompetitionUiHelpers.CreatePlacementBadge(rowResult.Placement), 0, 0);
         row.Add(info, 1, 0);
+        if (_showResultColumn)
+            row.Add(new Label
+            {
+                Text = rowResult.Result.HasValue
+                    ? $"{DivisionMatch.FormatScore(rowResult.Result)}{(Division?.Discipline == CompetitionDisciplineE.Specialtekniker ? " cm" : "")}" : "–",
+                FontAttributes = FontAttributes.Bold,
+                VerticalTextAlignment = TextAlignment.Center
+            }, 2, 0);
 
         var tap = new TapGestureRecognizer();
         tap.Tapped += async (_, _) =>

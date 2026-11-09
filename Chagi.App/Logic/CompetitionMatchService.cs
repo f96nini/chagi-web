@@ -55,13 +55,20 @@ public static class CompetitionMatchService
         CancellationToken cancellationToken = default)
         => Task.Run(() => GetAvailableDivisionsCoreAsync(date, competitionName, cancellationToken), cancellationToken);
 
+    public static Task<IReadOnlyList<DivisionMatch>> GetCompetitionMatchesAsync(DateTime date, string competitionName,
+        CancellationToken cancellationToken = default)
+        => Task.Run(async () =>
+        {
+            var json = await LoadMatchesJsonAsync(date, competitionName, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return (IReadOnlyList<DivisionMatch>)(json == null ? [] : DeserializeMatches(json));
+        }, cancellationToken);
+
     static async Task<HashSet<string>> GetAvailableDivisionsCoreAsync(DateTime date, string competitionName,
         CancellationToken cancellationToken)
     {
-        var json = await LoadMatchesJsonAsync(date, competitionName, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        var matches = json == null ? [] : DeserializeMatches(json);
-        return matches.Where(match => match.HasDetailedData)
+        var matches = await GetCompetitionMatchesAsync(date, competitionName, cancellationToken).ConfigureAwait(false);
+        return matches.Where(match => match.HasDetailedData || match.HasIndividualResults)
             .Select(match => match.Category.Trim())
             .Where(category => category.Length > 0)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

@@ -13,6 +13,7 @@ public sealed partial class DivisionMatchesPage : ContentPage, IQueryAttributabl
     DivisionMatchNavigation? _context;
     bool _loading;
     bool _loaded;
+    bool _showSpecResultTable = true;
     readonly PageLifetime _lifetime = new();
     ActivityIndicator? _loadingIndicator;
 
@@ -32,6 +33,7 @@ public sealed partial class DivisionMatchesPage : ContentPage, IQueryAttributabl
             {
                 _context = context;
                 _loaded = false;
+                _showSpecResultTable = true;
                 Title = CompetitionDetailsCard.BuildTitle(_context.Division);
             }
         }
@@ -76,16 +78,62 @@ public sealed partial class DivisionMatchesPage : ContentPage, IQueryAttributabl
             else
             {
                 var individual = matches.All(match => match.IsIndividualAttempt);
-                var countLabel = individual
-                    ? matches.Count == 1 ? "1 deltagarstart" : $"{matches.Count} deltagarstarter"
-                    : matches.Count == 1 ? "1 möte" : $"{matches.Count} möten";
+                var isPower = context.Division.Discipline == CompetitionDisciplineE.Kross;
+                var isSpec = context.Division.Discipline == CompetitionDisciplineE.Specialtekniker;
+                var tableRows = isPower || isSpec
+                    ? IndividualAttemptTableService.Build(matches, isSpec) : [];
+                var countLabel = isPower
+                    ? tableRows.Count == 1 ? "1 deltagare" : $"{tableRows.Count} deltagare"
+                    : individual
+                        ? matches.Count == 1 ? "1 deltagarstart" : $"{matches.Count} deltagarstarter"
+                        : matches.Count == 1 ? "1 möte" : $"{matches.Count} möten";
                 _body.Add(new Label { Text = countLabel, FontAttributes = FontAttributes.Bold });
-                if (individual)
-                    _body.Add(new Label { Text = "Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan." });
-                foreach (var match in matches)
+                if (isPower)
+                    _body.Add(BuildResultTable(tableRows, false));
+                else if (isSpec)
                 {
-                    _body.Add(BuildMatchCard(match, matches));
-                    await Task.Delay(1, token);
+                    var buttons = new Grid { ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) }, ColumnSpacing = 8 };
+                    var resultButton = new Button { Text = "Resultattabell", CornerRadius = 8 };
+                    var detailsButton = new Button { Text = "Detaljer", CornerRadius = 8 };
+                    buttons.Add(resultButton, 0, 0);
+                    buttons.Add(detailsButton, 1, 0);
+                    _body.Add(buttons);
+
+                    var table = BuildResultTable(tableRows, true);
+                    var details = new VerticalStackLayout { Spacing = 14 };
+                    details.Add(new Label { Text = matches.Any(match => match.HasIndividualResults)
+                        ? "Registrerade poäng och försök visas nedan. Medaljplaceringarna finns i resultatlistan."
+                        : "Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan." });
+                    foreach (var match in matches)
+                    {
+                        details.Add(BuildMatchCard(match, matches));
+                        await Task.Delay(1, token);
+                    }
+                    _body.Add(table);
+                    _body.Add(details);
+                    void SelectView(bool showTable)
+                    {
+                        _showSpecResultTable = showTable;
+                        table.IsVisible = showTable;
+                        details.IsVisible = !showTable;
+                        SetTabButtonState(resultButton, showTable);
+                        SetTabButtonState(detailsButton, !showTable);
+                    }
+                    resultButton.Clicked += (_, _) => SelectView(true);
+                    detailsButton.Clicked += (_, _) => SelectView(false);
+                    SelectView(_showSpecResultTable);
+                }
+                else
+                {
+                    if (individual)
+                        _body.Add(new Label { Text = matches.Any(match => match.HasIndividualResults)
+                            ? "Registrerade poäng och försök visas nedan. Medaljplaceringarna finns i resultatlistan."
+                            : "Individuella teknikvärden saknas i underlaget. Registrerade starter visas nedan; medaljplaceringarna finns i resultatlistan." });
+                    foreach (var match in matches)
+                    {
+                        _body.Add(BuildMatchCard(match, matches));
+                        await Task.Delay(1, token);
+                    }
                 }
             }
             _loaded = true;
@@ -112,6 +160,49 @@ public sealed partial class DivisionMatchesPage : ContentPage, IQueryAttributabl
                 }
                 _loading = false;
             }
+        }
+    }
+
+    static View BuildResultTable(IReadOnlyList<IndividualAttemptTableRow> rows, bool isSpec)
+    {
+        var table = new Grid { ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            }, ColumnSpacing = 10, RowSpacing = 10 };
+        table.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        table.Add(new Label { Text = "Position", FontSize = 12, FontAttributes = FontAttributes.Bold }, 0, 0);
+        table.Add(new Label { Text = "Namn", FontSize = 12, FontAttributes = FontAttributes.Bold }, 1, 0);
+        table.Add(new Label { Text = "Resultat", FontSize = 12, FontAttributes = FontAttributes.Bold, HorizontalTextAlignment = TextAlignment.End }, 2, 0);
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            var gridRow = index + 1;
+            table.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            table.Add(new Label { Text = row.Position > 0 ? row.Position.ToString() : "–", FontAttributes = FontAttributes.Bold }, 0, gridRow);
+            table.Add(new Label { Text = row.Name, LineBreakMode = LineBreakMode.WordWrap }, 1, gridRow);
+            var result = row.Best.HasValue ? DivisionMatch.FormatScore(row.Best) : "–";
+            if (row.HasSecondResult)
+                result += $" ({DivisionMatch.FormatScore(row.Worst)})";
+            if (isSpec && row.Best.HasValue)
+                result += " cm";
+            table.Add(new Label { Text = result, HorizontalTextAlignment = TextAlignment.End, FontAttributes = FontAttributes.Bold }, 2, gridRow);
+        }
+        return CompetitionUiHelpers.CreateCard(table);
+    }
+
+    static void SetTabButtonState(Button button, bool selected)
+    {
+        if (selected)
+        {
+            button.BackgroundColor = Color.FromArgb("#184E77");
+            button.TextColor = Colors.White;
+        }
+        else
+        {
+            button.SetAppThemeColor(Button.BackgroundColorProperty, ThemeColors.CardStrokeLight, ThemeColors.SurfaceDark);
+            button.SetAppThemeColor(Button.TextColorProperty, ThemeColors.PrimaryTextLight, ThemeColors.PrimaryTextDark);
         }
     }
 
@@ -144,7 +235,29 @@ public sealed partial class DivisionMatchesPage : ContentPage, IQueryAttributabl
                 blueWinner, !match.IsIndividualAttempt));
         else if (!match.IsIndividualAttempt)
             content.Add(new Label { Text = "Ingen motståndare angiven i underlaget.", FontSize = 13 });
-        if (!redWinner && !blueWinner)
+        if (match.HasIndividualResults)
+        {
+            var summary = new VerticalStackLayout { Spacing = 3 };
+            summary.Add(new Label { Text = $"Registrerat resultat: {DivisionMatch.FormatScore(match.RedPoints)} poäng",
+                FontAttributes = FontAttributes.Bold });
+            if (match.HighestClearedHeightCm is { } height)
+                summary.Add(new Label { Text = $"Högsta klarade höjd: {DivisionMatch.FormatScore(height)} cm", FontSize = 13 });
+            content.Add(summary);
+            foreach (var score in match.IndividualScores.Where(score => score.Eligible && score.Points.HasValue))
+            {
+                var label = match.Discipline == "SPEC_TECH" && score.HeightCm is { } scoreHeight
+                    ? $"Försök {score.AttemptNumber ?? score.TechniqueId} · {DivisionMatch.FormatScore(scoreHeight)} cm"
+                    : $"Försök {score.AttemptNumber ?? score.TechniqueId}";
+                var value = match.Discipline == "SPEC_TECH" && score.Cleared.HasValue
+                    ? score.Cleared.Value ? "Klarad" : "Ej klarad"
+                    : $"{DivisionMatch.FormatScore(score.Points)} poäng";
+                var row = new Grid { ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }, ColumnSpacing = 10 };
+                row.Add(new Label { Text = label, FontSize = 13, LineBreakMode = LineBreakMode.WordWrap }, 0, 0);
+                row.Add(new Label { Text = value, FontSize = 13, FontAttributes = FontAttributes.Bold }, 1, 0);
+                content.Add(row);
+            }
+        }
+        if (!match.IsIndividualAttempt && !redWinner && !blueWinner)
             content.Add(new Label { Text = match.Outcome, FontSize = 13, FontAttributes = FontAttributes.Bold });
         return CompetitionUiHelpers.CreateCard(content);
     }

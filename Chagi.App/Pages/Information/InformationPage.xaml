@@ -55,6 +55,14 @@ Brons = 1 poäng"
                     StrokeShape="RoundRectangle 12"
                     Padding="12">
                 <VerticalStackLayout Spacing="4">
+                    <Label Text="2.2"
+                           FontAttributes="Bold"
+                           FontSize="16" />
+                    <Label Text="Äldre Gnestaresultat visas under Team FF TKD."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Resultattabeller för Kross och Spec. Medaljer följer Jirugis placeringar."
+                           LineBreakMode="WordWrap" />
+
                     <Label Text="2.1"
                            FontAttributes="Bold"
                            FontSize="16" />

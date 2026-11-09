@@ -74,6 +74,7 @@
             <DataTemplate x:DataType="logic:CompetitionDivisionEntry">
                 <views:CompetitionDetailsCard Division="{Binding .}"
                                               HasMatchData="{Binding HasMatchData}"
+                                              IndividualResults="{Binding IndividualResults}"
                                               DivisionSelectedCommand="{Binding Source={x:Reference Self}, Path=OpenDivisionCommand}"
                                               Margin="16,0,16,0"
                                               CompetitorSelectedCommand="{Binding Source={x:Reference Self}, Path=OpenCompetitorCommand}" />

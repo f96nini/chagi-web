@@ -77,7 +77,6 @@ img.avatar.club[src$="/frolunda.png"]{width:108px;min-width:108px;height:76px}
 .club-profile-header img.avatar.large[src$="/frolunda.png"]{width:170px;min-width:170px;height:108px}
 .profile-club-logo img.avatar.large[src$="/frolunda.png"]{width:155px;min-width:155px;height:100px}
 @media(max-width:600px){img.avatar.club[src$="/frolunda.png"]{width:80px;min-width:80px;height:56px}.club-profile-header img.avatar.large[src$="/frolunda.png"]{width:108px;min-width:108px;height:68px}.profile-club-logo img.avatar.large[src$="/frolunda.png"]{width:105px;min-width:105px;height:68px}}
-.division-result-note{margin:10px 18px 0;font-size:.75rem;line-height:1.5}
 .fighter-history-table .fighter-history-group:nth-of-type(even){background:#f3f8fd}
 .fighter-history-table .fighter-history-group + .fighter-history-group tr:first-child td{border-top:2px solid #aec5db}
 .fighter-history-table .fighter-history-group tr:hover{background:#eaf3fc}

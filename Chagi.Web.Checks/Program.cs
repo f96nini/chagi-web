@@ -154,11 +154,11 @@ var powerDivision = new CompetitionDivisionEntry { Discipline = CompetitionDisci
 var powerStarts = new[] { IndividualStart("POWER", 1, "Alpha", 500), IndividualStart("POWER", 2, "Beta", 400),
     IndividualStart("POWER", 3, "Gamma", 400), IndividualStart("POWER", 4, "Delta", 0) };
 var powerTable = IndividualResultRankingService.Build(powerDivision, powerStarts);
-Check(powerTable.ShowResultColumn && powerTable.HasCalculatedPlacements &&
+Check(powerTable.ShowResultColumn &&
       powerTable.Rows.Select(row => (row.Participant.CompetitorName, row.Result, row.Placement))
           .SequenceEqual(new[] { ("Alpha", (decimal?)500, 1), ("Beta", (decimal?)400, 2),
-              ("Gamma", (decimal?)400, 2), ("Delta", (decimal?)0, 4) }),
-    "Power results rank every participant, retain zero, and share places for equal scores");
+              ("Gamma", (decimal?)400, 3), ("Delta", (decimal?)0, 0) }),
+    "Power results display measured values while preserving Jirugi's medal placements");
 var specDivision = new CompetitionDivisionEntry { Discipline = CompetitionDisciplineE.Specialtekniker, Results =
     [new() { CompetitorName = "Alpha", Team = "Testklubb", Placement = 2 },
      new() { CompetitorName = "Beta", Team = "Testklubb", Placement = 1 },
@@ -167,13 +167,23 @@ var specDivision = new CompetitionDivisionEntry { Discipline = CompetitionDiscip
 var specStarts = new[] { IndividualStart("SPEC_TECH", 1, "Alpha", 1, 170), IndividualStart("SPEC_TECH", 2, "Beta", 1, 180),
     IndividualStart("SPEC_TECH", 3, "Gamma", 1), IndividualStart("SPEC_TECH", 4, "Delta", 0) };
 var specTable = IndividualResultRankingService.Build(specDivision, specStarts);
-Check(specTable.ShowResultColumn && specTable.HasCalculatedPlacements &&
+Check(specTable.ShowResultColumn &&
       specTable.Rows.Select(row => (row.Result, row.Placement))
-          .SequenceEqual(new[] { ((decimal?)180, 1), ((decimal?)170, 2), ((decimal?)null, 3), ((decimal?)null, 3) }),
-    "Spec results rank cleared heights and group participants without a recorded height last");
+          .SequenceEqual(new[] { ((decimal?)170, 2), ((decimal?)180, 1), ((decimal?)null, 3), ((decimal?)null, 0) }),
+    "Spec result values leave published medal places unchanged");
 var incompleteTable = IndividualResultRankingService.Build(powerDivision, powerStarts.SkipLast(1));
-Check(incompleteTable.ShowResultColumn && !incompleteTable.HasCalculatedPlacements && incompleteTable.Rows.Last().Placement == 0,
-    "Incomplete individual records display known values without inventing a full ranking");
+Check(incompleteTable.ShowResultColumn && incompleteTable.Rows.Last().Placement == 0,
+    "Incomplete individual records display known values without inventing a medal");
+var jirugiDivision = new CompetitionDivisionEntry { Discipline = CompetitionDisciplineE.Specialtekniker, Results =
+    [new() { CompetitorName = "Gordana Ceprnja", Team = "Göteborg Phoenix", Placement = 1 },
+     new() { CompetitorName = "Rebecca Nickless", Team = "Kokkedal", Placement = 2 },
+     new() { CompetitorName = "Alicia Kroon", Team = "Torslanda", Placement = 0 }] };
+var jirugiTable = IndividualResultRankingService.Build(jirugiDivision,
+    [IndividualStart("SPEC_TECH", 1, "Gordana Ceprnja", 1, 212),
+     IndividualStart("SPEC_TECH", 2, "Rebecca Nickless", 1, 210),
+     IndividualStart("SPEC_TECH", 3, "Alicia Kroon", 0)]);
+Check(jirugiTable.Rows.Select(row => row.Placement).SequenceEqual(new[] { 1, 2, 0 }),
+    "Alicia Kroon does not receive a bronze when Jirugi publishes only gold and silver");
 var ranking = await Render<Chagi.Web.Pages.Ranking>();
 Check(ranking.Contains("Test Alpha") && ranking.Contains("Test Beta") && ranking.Contains("Kadetter") && ranking.Contains("Poängligan") && ranking.Contains("Sortera på") && ranking.Contains("Total Poäng") && ranking.Contains(">Klass</option>") && ranking.Contains(">Klubb</option>") && ranking.Contains(">Herrar</option>") && ranking.Contains(">Damer</option>") && ranking.Contains(">Herrar/Damer</option>") && !ranking.Contains("Säsong"), "Poängligan defaults to combined men and women and total points without a season filter");
 var rankingFighters = data.Fighters.Select(f => new Competitor {

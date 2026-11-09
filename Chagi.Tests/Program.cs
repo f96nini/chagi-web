@@ -95,6 +95,26 @@ var index = CompetitionMatchParser.ParseIndex("[{\"competitionDate\":\"2026-04-0
 Check(index.Single().CompetitionDate == new DateTime(2026, 4, 1), "The actual camelCase JSON match contract deserializes");
 var matches = CompetitionMatchParser.DeserializeMatches("[{\"matchId\":1,\"redParticipant\":\"Test Alpha - Billdal\",\"redPoints\":\"3.5\"}]");
 Check(matches.Single().RedPoints == 3.5m && matches.Single().RedParticipant == "Test Alpha - GBG Kampsport", "Match JSON keeps numeric strings and club normalization");
+var powerTable = IndividualAttemptTableService.Build([
+    new DivisionMatch { Discipline = "POWER", RedId = 1, RedParticipant = "Alpha - Club", Finished = 1, RedPoints = 12,
+        IndividualScores = [new() { Points = 7, Eligible = true }, new() { Points = 5, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 2, RedParticipant = "Beta - Club", Finished = 1, RedPoints = 9,
+        IndividualScores = [new() { Points = 9, Eligible = true }, new() { Points = 2, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 3, RedParticipant = "Gamma - Club", Finished = 1, RedPoints = 7,
+        IndividualScores = [new() { Points = 7, Eligible = true }, new() { Points = 3, Eligible = true }] }
+], false);
+Check(powerTable.Select(row => (row.Name, row.Position, row.Best, row.Worst))
+    .SequenceEqual(new[] { ("Beta", 1, (decimal?)9, (decimal?)2), ("Alpha", 2, (decimal?)7, (decimal?)5), ("Gamma", 2, (decimal?)7, (decimal?)3) }),
+    "Power table ranks best attempts even when a reported start total is their sum, and keeps the lower attempt");
+var specTable = IndividualAttemptTableService.Build([
+    new DivisionMatch { Discipline = "SPEC_TECH", RedId = 1, RedParticipant = "Alpha - Club", Finished = 1, HighestClearedHeightCm = 170 },
+    new DivisionMatch { Discipline = "SPEC_TECH", RedId = 1, RedParticipant = "Alpha - Club", Finished = 1, HighestClearedHeightCm = 180 },
+    new DivisionMatch { Discipline = "SPEC_TECH", RedId = 2, RedParticipant = "Beta - Club", Finished = 1, HighestClearedHeightCm = 175 },
+    new DivisionMatch { Discipline = "SPEC_TECH", RedId = 3, RedParticipant = "Gamma - Club", Finished = 1 }
+], true);
+Check(specTable.Select(row => (row.Name, row.Position, row.Best))
+    .SequenceEqual(new[] { ("Alpha", 1, (decimal?)180), ("Beta", 2, (decimal?)175), ("Gamma", 0, (decimal?)null) }),
+    "Spec table keeps one row per participant and ranks only the highest cleared height");
 var lf = Encoding.UTF8.GetBytes("svenska åäö\nresultat\n");
 Check(DataIntegrity.MatchesChecksum(lf, new() { Path = "results/test.txt", Sha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("svenska åäö\r\nresultat\r\n"))) }), "The shared checksum accepts GitHub LF against publisher CRLF hashes");
 foreach (var invalid in new[] { "../private.txt", "results/../private.txt", "https://elsewhere/file.txt", "results/file.txt?x=1", "results//file.txt" })

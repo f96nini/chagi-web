@@ -31,6 +31,8 @@
                        VerticalTextAlignment="Center"
                        IsVisible="False" Grid.Column="1" Margin="10,0,0,0"/>
             </Grid>
+            <Label x:Name="ResultHeader" Text="Resultat" IsVisible="False"
+                   HorizontalTextAlignment="End" FontSize="12" FontAttributes="Bold" />
             <VerticalStackLayout x:Name="WinnerRowsHost"
                                  Spacing="8" />
             <Button x:Name="OtherParticipantsToggle"

@@ -202,6 +202,7 @@ public sealed class CompetitionDisciplineCount
 public sealed class CompetitionDivisionEntry : System.ComponentModel.INotifyPropertyChanged
 {
     bool _hasMatchData;
+    IndividualResultTable? _individualResults;
     public bool HasMatchData
     {
         get => _hasMatchData;
@@ -213,6 +214,17 @@ public sealed class CompetitionDivisionEntry : System.ComponentModel.INotifyProp
         }
     }
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public IndividualResultTable? IndividualResults
+    {
+        get => _individualResults;
+        set
+        {
+            if (ReferenceEquals(_individualResults, value)) return;
+            _individualResults = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IndividualResults)));
+        }
+    }
 
     public CompetitionDisciplineE Discipline { get; set; }
     public string BeltGroup { get; set; } = string.Empty;

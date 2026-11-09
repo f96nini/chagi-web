@@ -43,7 +43,6 @@
                 <tr><td><span class="placement placement-@row.Placement">@(row.Placement > 0 ? row.Placement.ToString() : "–")</span></td><td>@if (fighter != null) { <a class="name-link" href="@($"fighters/{ResultLinks.FighterId(fighter)}")">@row.Participant.CompetitorName</a> } else { @row.Participant.CompetitorName }</td><td>@row.Participant.Team</td>@if (resultTable.ShowResultColumn) { <td class="number">@FormatResult(division, row.Result)</td> }</tr>
             }
             </tbody></table></div>
-            @if (resultTable.HasCalculatedPlacements) { <p class="division-result-note">Placeringarna här följer registrerat resultat. Medaljstatistiken följer publicerade placeringar.</p> }
             @if (hasMatchDetails) { <a class="match-details-link" href="@($"tavlingar/{Id}/matcher/{ResultLinks.DivisionId(division.Division)}")">Visa matchdetaljer <span aria-hidden="true">↗</span></a> }
         </details>
     }
