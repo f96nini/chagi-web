@@ -106,6 +106,14 @@ Check(sparringDetails.Contains("Sammanställning") && sparringDetails.Contains("
       sparringDetails.IndexOf("Sammanställning", StringComparison.Ordinal) < sparringDetails.IndexOf("Match 1", StringComparison.Ordinal) &&
       sparringDetails.Contains("Test Alpha") && sparringDetails.Contains("Test Gamma"),
     "Sparring match details put the participant summary above the match cards");
+var specDetails = await Render<Chagi.Web.Pages.MatchDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()), ["DivisionId"] = ResultLinks.DivisionId("Spec. Flickor Kadetter VIT") });
+Check(specDetails.Contains("Resultattabell") && specDetails.Contains("Detaljer") &&
+      specDetails.Contains("170 cm") && specDetails.Contains("Position</th>") && !specDetails.Contains("Start 1"),
+    "Spec details default to a highest-cleared-height table with a details switch");
+var powerDetails = await Render<Chagi.Web.Pages.MatchDetails>(new() { ["Id"] = ResultLinks.CompetitionId(data.Competitions.First()), ["DivisionId"] = ResultLinks.DivisionId("Kross Pojkar Kadetter VIT") });
+Check(powerDetails.Contains("Position</th>") && powerDetails.Contains("Test Alpha") && powerDetails.Contains("Test Gamma") &&
+      !powerDetails.Contains("Start 1") && !powerDetails.Contains("Ring A"),
+    "Power details show one compact result table without start cards or ring labels");
 var summary = SparringMatchSummaryService.Build([
     new() { Discipline = "SPARRING", MatchId = 1, Finished = 1, RedId = 1, RedParticipant = "Test Alpha - Testklubb", RedPoints = 2, RedFlags = 4,
         BlueId = 2, BlueParticipant = "Test Gamma - Testklubb", BluePoints = 0, BlueFlags = 0, WinnerId = 1 },

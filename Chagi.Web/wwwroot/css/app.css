@@ -113,3 +113,11 @@ img.avatar.club[src$="/frolunda.png"]{width:108px;min-width:108px;height:76px}
 .sparring-summary table{min-width:510px}
 .sparring-summary td.number{font-variant-numeric:tabular-nums;font-weight:700}
 @media(max-width:600px){.sparring-summary{padding:16px 12px 18px}.sparring-summary-note{font-size:.76rem}}
+.match-view-switch{display:flex;gap:8px;margin:0 0 18px}
+.match-view-switch button{flex:1;max-width:240px;min-height:44px;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-weight:700}
+.match-view-switch button.selected{background:#184e77;border-color:#184e77;color:#fff}
+.individual-results{margin:0 0 32px;padding:16px;background:#fff;border:1px solid var(--line);border-radius:9px}
+.individual-results .table-scroll{margin:0}
+.individual-results table{min-width:340px}
+.individual-results td.number{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:600px){.match-view-switch button{max-width:none}.individual-results{padding:10px}}

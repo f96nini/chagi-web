@@ -106,6 +106,30 @@ var powerTable = IndividualAttemptTableService.Build([
 Check(powerTable.Select(row => (row.Name, row.Position, row.Best, row.Worst))
     .SequenceEqual(new[] { ("Beta", 1, (decimal?)9, (decimal?)2), ("Alpha", 2, (decimal?)7, (decimal?)5), ("Gamma", 2, (decimal?)7, (decimal?)3) }),
     "Power table ranks best attempts even when a reported start total is their sum, and keeps the lower attempt");
+var publishedPowerTable = IndividualAttemptTableService.Build([
+    new DivisionMatch { Discipline = "POWER", RedId = 1, RedParticipant = "Zoe - Club", Finished = 1,
+        IndividualScores = [new() { Points = 7, Eligible = true }, new() { Points = 5, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 2, RedParticipant = "Anna - Club", Finished = 1,
+        IndividualScores = [new() { Points = 7, Eligible = true }, new() { Points = 2, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 3, RedParticipant = "Bertil - Club", Finished = 1,
+        IndividualScores = [new() { Points = 9, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 4, RedParticipant = "Cecilia - Club", Finished = 1,
+        IndividualScores = [new() { Points = 12, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 5, RedParticipant = "Delta - Club", Finished = 1,
+        IndividualScores = [new() { Points = 15, Eligible = true }] },
+    new DivisionMatch { Discipline = "POWER", RedId = 6, RedParticipant = "Gamma - Club", Finished = 1,
+        IndividualScores = [new() { Points = 3, Eligible = true }] }
+], false, [
+    new() { CompetitorName = "Zoe", Team = "Club", Placement = 1 },
+    new() { CompetitorName = "Anna", Team = "Club", Placement = 1 },
+    new() { CompetitorName = "Bertil", Team = "Club", Placement = 1 },
+    new() { CompetitorName = "Cecilia", Team = "Club", Placement = 2 },
+    new() { CompetitorName = "Delta", Team = "Club", Placement = 0 },
+    new() { CompetitorName = "Gamma", Team = "Club", Placement = 0 }
+]);
+Check(publishedPowerTable.Select(row => (row.Name, row.Position)).SequenceEqual([
+    ("Bertil", 1), ("Zoe", 1), ("Anna", 1), ("Cecilia", 2), ("Delta", 0), ("Gamma", 0) ]),
+    "Power details follow published placements, then best and second results, including unplaced participants");
 var specTable = IndividualAttemptTableService.Build([
     new DivisionMatch { Discipline = "SPEC_TECH", RedId = 1, RedParticipant = "Alpha - Club", Finished = 1, HighestClearedHeightCm = 170 },
     new DivisionMatch { Discipline = "SPEC_TECH", RedId = 1, RedParticipant = "Alpha - Club", Finished = 1, HighestClearedHeightCm = 180 },

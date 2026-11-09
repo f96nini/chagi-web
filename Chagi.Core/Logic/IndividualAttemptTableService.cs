@@ -8,7 +8,8 @@ public sealed record IndividualAttemptTableRow(int Position, string Name, decima
 
 public static class IndividualAttemptTableService
 {
-    public static IReadOnlyList<IndividualAttemptTableRow> Build(IEnumerable<DivisionMatch> matches, bool isSpec)
+    public static IReadOnlyList<IndividualAttemptTableRow> Build(
+        IEnumerable<DivisionMatch> matches, bool isSpec, IEnumerable<CompetitionPlacementEntry>? placements = null)
     {
         var rows = matches
             .Where(match => isSpec ? match.Discipline == "SPEC_TECH" : match.Discipline is "POWER" or "POWER_BREAK")
@@ -27,21 +28,39 @@ public static class IndividualAttemptTableService
                 var best = isSpec ? heights.Max() : scores.Count > 0 ? scores.Max() : (decimal?)null;
                 var worst = !isSpec && scores.Count > 1 ? scores.Min() : (decimal?)null;
                 var name = group.First().RedParticipant!.Split(" - ", 2)[0];
-                return new IndividualAttemptTableRow(0, name, best, worst, !isSpec && scores.Count > 1);
+                return (Row: new IndividualAttemptTableRow(0, name, best, worst, !isSpec && scores.Count > 1),
+                    Participant: Identity(group.First().RedParticipant));
             })
-            .OrderByDescending(row => row.Best.HasValue)
-            .ThenByDescending(row => row.Best)
-            .ThenBy(row => row.Name, SwedishNameComparer.Instance)
+            .OrderByDescending(item => item.Row.Best)
+            .ThenByDescending(item => item.Row.Worst)
             .ToList();
 
-        var position = 0;
-        for (var index = 0; index < rows.Count; index++)
+        if (placements is not null)
         {
-            if (!rows[index].Best.HasValue) continue;
-            if (index == 0 || rows[index].Best != rows[index - 1].Best)
-                position = index + 1;
-            rows[index] = rows[index] with { Position = position };
+            var publishedPositions = placements
+                .GroupBy(placement => Identity($"{placement.CompetitorName} - {placement.Team}"), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().Placement, StringComparer.Ordinal);
+            return rows
+                .Select(item => item.Row with { Position = publishedPositions.GetValueOrDefault(item.Participant) })
+                .OrderBy(row => row.Position > 0 ? row.Position : int.MaxValue)
+                .ThenByDescending(row => row.Best)
+                .ThenByDescending(row => row.Worst)
+                .ToList();
         }
-        return rows;
+
+        var rankedRows = rows.Select(item => item.Row).ToList();
+        var position = 0;
+        for (var index = 0; index < rankedRows.Count; index++)
+        {
+            if (!rankedRows[index].Best.HasValue) continue;
+            if (index == 0 || rankedRows[index].Best != rankedRows[index - 1].Best)
+                position = index + 1;
+            rankedRows[index] = rankedRows[index] with { Position = position };
+        }
+        return rankedRows;
     }
+
+    static string Identity(string? participant) =>
+        (ClubCatalogService.NormalizeParticipant(participant) ?? string.Empty)
+            .Trim().Normalize(NormalizationForm.FormC).ToUpperInvariant();
 }
