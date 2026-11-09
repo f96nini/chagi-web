@@ -10,6 +10,7 @@ try {
         'Chagi.App/checks/BeltClassificationChecks.csproj',
         'Chagi.App/checks/HeadToHeadChecks.csproj',
         'Chagi.App/checks/DataSyncChecks.csproj',
+        'Chagi.App/checks/CalendarChecks.csproj',
         'Chagi.App/checks/NavigationChecks.csproj',
         'Chagi.App/checks/BackgroundWorkChecks.csproj'
     )

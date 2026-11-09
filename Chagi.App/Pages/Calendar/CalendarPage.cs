@@ -118,6 +118,8 @@ public class CalendarPage : ContentPage
 
         _statusLabel.Text = result.LoadedFromCache
             ? $"{entries.Count} kalenderhändelser från sparad kalender"
+            : result.HasSourceError
+                ? $"{entries.Count} kalenderhändelser · vissa uppgifter kunde inte uppdateras"
             : $"{entries.Count} kalenderhändelser";
 
         var today = DateTime.Today;
@@ -232,20 +234,60 @@ public class CalendarPage : ContentPage
         };
         dateLabel.SetAppThemeColor(Label.TextColorProperty, ThemeColors.PrimaryTextLight, ThemeColors.PrimaryTextDark);
 
-        var descriptionLabel = new Label
+        View details;
+        if (string.IsNullOrWhiteSpace(entry.Title))
         {
-            Text = entry.Description,
-            FontSize = 14,
-            LineBreakMode = LineBreakMode.WordWrap
-        };
-        descriptionLabel.SetAppThemeColor(Label.TextColorProperty, ThemeColors.PrimaryTextLight, ThemeColors.PrimaryTextDark);
+            var descriptionLabel = new Label
+            {
+                Text = entry.Description,
+                FontSize = 14,
+                LineBreakMode = LineBreakMode.WordWrap,
+                TextDecorations = isPast ? TextDecorations.Strikethrough : TextDecorations.None
+            };
+            descriptionLabel.SetAppThemeColor(Label.TextColorProperty, ThemeColors.PrimaryTextLight, ThemeColors.PrimaryTextDark);
+            details = descriptionLabel;
+        }
+        else
+        {
+            var titleLabel = new Label
+            {
+                Text = entry.Title,
+                FontAttributes = FontAttributes.Bold,
+                FontSize = 14,
+                LineBreakMode = LineBreakMode.WordWrap,
+                TextDecorations = isPast ? TextDecorations.Strikethrough :
+                    entry.Url is null ? TextDecorations.None : TextDecorations.Underline
+            };
+            titleLabel.SetAppThemeColor(Label.TextColorProperty,
+                entry.Url is null ? ThemeColors.PrimaryTextLight : Color.FromArgb("#184E77"),
+                entry.Url is null ? ThemeColors.PrimaryTextDark : Color.FromArgb("#8CC8FF"));
+            if (entry.Url is { Length: > 0 } url)
+            {
+                var tap = new TapGestureRecognizer();
+                tap.Tapped += async (_, _) =>
+                {
+                    try { await Launcher.Default.OpenAsync(new Uri(url)); }
+                    catch (Exception ex) { AppDiagnostics.Log(ex, "Öppna kalenderlänk"); }
+                };
+                titleLabel.GestureRecognizers.Add(tap);
+            }
+
+            var locationLabel = new Label
+            {
+                Text = $"{entry.City}, {entry.Country}" + (entry.Tentative ? " · Preliminärt datum" : string.Empty),
+                FontSize = 12,
+                LineBreakMode = LineBreakMode.WordWrap,
+                TextDecorations = isPast ? TextDecorations.Strikethrough : TextDecorations.None
+            };
+            locationLabel.SetAppThemeColor(Label.TextColorProperty, ThemeColors.PrimaryTextLight, ThemeColors.PrimaryTextDark);
+            details = new VerticalStackLayout { Spacing = 2, Children = { titleLabel, locationLabel } };
+        }
 
         if (isPast)
         {
             dateLabel.TextDecorations = TextDecorations.Strikethrough;
-            descriptionLabel.TextDecorations = TextDecorations.Strikethrough;
             dateLabel.Opacity = 0.48;
-            descriptionLabel.Opacity = 0.48;
+            details.Opacity = 0.48;
         }
 
         var row = new Grid
@@ -259,10 +301,10 @@ public class CalendarPage : ContentPage
             Children =
             {
                 dateLabel,
-                descriptionLabel
+                details
             }
         };
-        Grid.SetColumn(descriptionLabel, 1);
+        Grid.SetColumn(details, 1);
 
         return CompetitionUiHelpers.CreateCard(row, new Thickness(10, 8));
     }

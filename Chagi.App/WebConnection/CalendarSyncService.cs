@@ -9,6 +9,7 @@ namespace ITF_Taekwondo_Gradering.WebConnection;
 public static class CalendarSyncService
 {
     const string CalendarUrl = "https://itfsverige.se/kalendarium/kalender.htm";
+    static readonly Uri AdditionalCalendarUrl = new(new Uri(ChagiVersion.BaseUrl), "calendar/events.json");
 
     static readonly SemaphoreSlim SyncLock = new(1, 1);
     static readonly HttpClient HttpClient = new()
@@ -54,52 +55,64 @@ public static class CalendarSyncService
         try
         {
             var attemptedAtUtc = DateTime.UtcNow;
+            var previous = await LoadCacheAsync().ConfigureAwait(false);
+            var itfEntries = previous is { Version: >= 2 }
+                ? previous.ItfEntries : previous?.Entries ?? new List<CalendarEntry>();
+            var additionalEntries = previous?.AdditionalEntries ?? new List<CalendarEntry>();
+            var fingerprint = previous?.Fingerprint ?? string.Empty;
+            var itfFresh = false;
+            var additionsFresh = false;
 
+            // Both sources start together so one slow site does not delay the other twice.
+            var itfDownload = DownloadCalendarHtmlAsync();
+            var additionsDownload = HttpClient.GetStringAsync(AdditionalCalendarUrl);
             try
             {
-                var html = await DownloadCalendarHtmlAsync().ConfigureAwait(false);
-                var entries = ParseCalendar(html);
-                if (entries.Count == 0)
+                var html = await itfDownload.ConfigureAwait(false);
+                var parsed = ParseCalendar(html);
+                if (parsed.Count == 0)
                     throw new InvalidOperationException("Kalendern innehöll inga parsade rader.");
-
-                var cache = new CalendarCache
-                {
-                    SourceUrl = CalendarUrl,
-                    DownloadedUtc = DateTime.UtcNow,
-                    Fingerprint = BuildFingerprint(html),
-                    Entries = entries
-                };
-                await SaveCacheAsync(cache).ConfigureAwait(false);
-
-                return new CalendarSyncResult
-                {
-                    Entries = entries,
-                    DownloadedUtc = cache.DownloadedUtc,
-                    LoadedFromCache = false
-                };
+                itfEntries = parsed;
+                fingerprint = BuildFingerprint(html);
+                itfFresh = true;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(ex);
-                var cache = await LoadCacheAsync().ConfigureAwait(false);
-                if (cache != null && cache.Entries.Count > 0)
-                {
-                    return new CalendarSyncResult
-                    {
-                        Entries = cache.Entries,
-                        DownloadedUtc = cache.DownloadedUtc,
-                        LoadedFromCache = true
-                    };
-                }
-
-                return new CalendarSyncResult
-                {
-                    Entries = new List<CalendarEntry>(),
-                    DownloadedUtc = attemptedAtUtc,
-                    LoadedFromCache = false,
-                    ErrorMessage = "Kunde inte läsa kalendern."
-                };
             }
+            try
+            {
+                additionalEntries = CalendarAdditionalEvents.Parse(
+                    await additionsDownload.ConfigureAwait(false));
+                additionsFresh = true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
+
+            var entries = CalendarAdditionalEvents.Merge(itfEntries, additionalEntries);
+            if (itfFresh || additionsFresh)
+                await SaveCacheAsync(new CalendarCache
+                {
+                    Version = 2,
+                    SourceUrl = CalendarUrl,
+                    AdditionalSourceUrl = AdditionalCalendarUrl.AbsoluteUri,
+                    DownloadedUtc = attemptedAtUtc,
+                    Fingerprint = fingerprint,
+                    ItfEntries = itfEntries,
+                    AdditionalEntries = additionalEntries,
+                    Entries = entries
+                }).ConfigureAwait(false);
+
+            return new CalendarSyncResult
+            {
+                Entries = entries,
+                DownloadedUtc = itfFresh || additionsFresh ? attemptedAtUtc : previous?.DownloadedUtc ?? attemptedAtUtc,
+                LoadedFromCache = !itfFresh && !additionsFresh && entries.Count > 0,
+                HasSourceError = !itfFresh || !additionsFresh,
+                ErrorMessage = entries.Count == 0 ? "Kunde inte läsa kalendern." : string.Empty
+            };
         }
         finally
         {
@@ -277,24 +290,18 @@ public sealed class CalendarSyncResult
     public List<CalendarEntry> Entries { get; init; } = new();
     public DateTime DownloadedUtc { get; init; }
     public bool LoadedFromCache { get; init; }
+    public bool HasSourceError { get; init; }
     public string ErrorMessage { get; init; } = string.Empty;
-}
-
-public sealed class CalendarEntry
-{
-    public int Year { get; init; }
-    public int Month { get; init; }
-    public string MonthName { get; init; } = string.Empty;
-    public string DayText { get; init; } = string.Empty;
-    public string Description { get; init; } = string.Empty;
-    public DateTime SortDate { get; init; }
-    public DateTime EndDate { get; init; }
 }
 
 sealed class CalendarCache
 {
+    public int Version { get; init; }
     public string SourceUrl { get; init; } = string.Empty;
+    public string AdditionalSourceUrl { get; init; } = string.Empty;
     public DateTime DownloadedUtc { get; init; }
     public string Fingerprint { get; init; } = string.Empty;
+    public List<CalendarEntry> ItfEntries { get; init; } = new();
+    public List<CalendarEntry> AdditionalEntries { get; init; } = new();
     public List<CalendarEntry> Entries { get; init; } = new();
 }

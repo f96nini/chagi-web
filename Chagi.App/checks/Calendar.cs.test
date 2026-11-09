@@ -1,0 +1,50 @@
+using ITF_Taekwondo_Gradering.WebConnection;
+
+void Check(bool condition, string message)
+{
+    if (!condition) throw new Exception(message);
+    Console.WriteLine("PASS: " + message);
+}
+
+var additions = CalendarAdditionalEvents.Parse("""
+    {
+      "version": 1,
+      "events": [
+        { "startDate": "2027-02-06", "endDate": "2027-02-07", "country": "Finland", "city": "Tornio", "title": "HelmiCup", "url": "https://example.org/helmi" },
+        { "startDate": "2027-03-20", "country": "Polen", "city": "Wrocław", "title": "Master Cup", "tentative": true }
+      ]
+    }
+    """);
+Check(additions.Count == 2 && additions[0].DayText == "6–7" &&
+      additions[0].SortDate == new DateTime(2027, 2, 6) &&
+      additions[0].EndDate == new DateTime(2027, 2, 7) &&
+      additions[0].Url == "https://example.org/helmi",
+    "Date range, location and link parse from the GitHub calendar format");
+Check(additions[1].Tentative && additions[1].Description.Contains("preliminärt datum") &&
+      additions[1].City == "Wrocław", "Tentative dates and non-ASCII place names are retained");
+
+var itf = new[]
+{
+    new CalendarEntry { SortDate = new DateTime(2027, 1, 1), Description = "Nyårsläger" },
+    new CalendarEntry { SortDate = new DateTime(2027, 2, 6), Description = "Tävling: HelmiCup i Tornio, FINLAND" }
+};
+var merged = CalendarAdditionalEvents.Merge(itf, additions);
+Check(merged.Count == 3 && merged[0].Description == "Nyårsläger" &&
+      merged[1].Title == "HelmiCup" && merged[2].Title == "Master Cup",
+    "GitHub events join ITF events in date order and replace the same named event");
+
+try
+{
+    CalendarAdditionalEvents.Parse("""{"version":1,"events":[{"startDate":"2027-01-01","country":"Norge","city":"Oslo","title":"Test","url":"javascript:alert(1)"}]}""");
+    throw new Exception("An unsafe calendar link was accepted.");
+}
+catch (InvalidDataException) { Check(true, "Unsafe links are rejected"); }
+
+if (args.Length > 0)
+{
+    var publishedAdditions = CalendarAdditionalEvents.Parse(File.ReadAllText(args[0]));
+    Check(publishedAdditions.Count == 11 &&
+          publishedAdditions.Count(entry => entry.Year == 2027) == 11 &&
+          publishedAdditions.All(entry => entry.Url?.StartsWith("https://", StringComparison.Ordinal) == true),
+        "All eleven supplied 2027 events parse with HTTPS links");
+}
